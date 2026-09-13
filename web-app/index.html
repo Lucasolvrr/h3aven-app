@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Links</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<div id="login-view" class="screen">
+  <div class="login-box">
+    <h1>Links</h1>
+    <p class="muted">Sua coleção pessoal de links, sincronizada com a extensão.</p>
+    <form id="login-form">
+      <input type="email" id="email-input" placeholder="seu@email.com" required autocomplete="email" />
+      <button type="submit">Enviar link mágico</button>
+    </form>
+    <p id="login-status" class="muted small"></p>
+  </div>
+</div>
+
+<div id="app-view" class="screen hidden">
+  <header>
+    <h1>Links</h1>
+    <div class="header-actions">
+      <span id="user-email" class="muted small"></span>
+      <button id="logout-btn" class="ghost">Sair</button>
+    </div>
+  </header>
+
+  <section class="toolbar">
+    <input type="search" id="search-input" placeholder="Buscar por título ou URL" />
+    <select id="tag-filter">
+      <option value="">Todas as tags</option>
+    </select>
+  </section>
+
+  <section class="add-link">
+    <details>
+      <summary>Adicionar link manualmente</summary>
+      <form id="add-form">
+        <input type="url" id="add-url" placeholder="https://..." required />
+        <input type="text" id="add-title" placeholder="Título (opcional)" />
+        <input type="text" id="add-tags" placeholder="tags separadas por vírgula" />
+        <button type="submit">Salvar</button>
+      </form>
+    </details>
+  </section>
+
+  <section class="sync-panel">
+    <details>
+      <summary>Conectar a extensão do Chrome</summary>
+      <p class="muted small">Cole este token na tela de opções da extensão, uma única vez.</p>
+      <div class="token-row">
+        <code id="sync-token">••••••••••••••••</code>
+        <button id="reveal-token-btn" class="ghost small-btn">Mostrar</button>
+        <button id="copy-token-btn" class="ghost small-btn">Copiar</button>
+      </div>
+    </details>
+  </section>
+
+  <ul id="link-list"></ul>
+  <p id="empty-state" class="muted hidden">Nenhum link salvo ainda.</p>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

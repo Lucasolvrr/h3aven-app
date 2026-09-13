@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "link-saver-web",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "web-app", "-l", "5500"],
+      "port": 5500
+    }
+  ]
+}

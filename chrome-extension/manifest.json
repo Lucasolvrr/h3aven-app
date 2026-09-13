@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Link Saver",
+  "version": "1.0.0",
+  "description": "Salva a aba atual com tags no seu Supabase pessoal.",
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "options_page": "options.html",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": ["https://*.supabase.co/*"]
+}

@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+
+<div id="not-configured" class="hidden">
+  <p>Extensão ainda não conectada à sua conta.</p>
+  <button id="open-options">Abrir opções</button>
+</div>
+
+<div id="form-view" class="hidden">
+  <h1>Salvar link</h1>
+  <input type="text" id="title-input" placeholder="Título" />
+  <input type="url" id="url-input" placeholder="URL" />
+  <input type="text" id="tags-input" placeholder="tags separadas por vírgula" />
+  <button id="save-btn">Salvar</button>
+  <p id="status" class="muted"></p>
+</div>
+
+<script src="config.js"></script>
+<script src="popup.js"></script>
+</body>
+</html>
