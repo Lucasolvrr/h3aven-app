@@ -12,6 +12,20 @@ function detectSource(url) {
   }
 }
 
+// Classificação mais rica usada para buscar metadados/renderizar cards no web app.
+function detectContentType(url) {
+  try {
+    const host = new URL(url).hostname.replace('www.', '');
+    if (host.includes('youtube.com') || host.includes('youtu.be')) return 'youtube';
+    if (host.includes('open.spotify.com')) return 'music';
+    if ((host.includes('twitter.com') || host.includes('x.com')) && /\/status\//.test(url)) return 'tweet';
+    if (host.includes('reddit.com')) return 'social';
+    return 'link';
+  } catch {
+    return 'link';
+  }
+}
+
 function parseJwt(token) {
   const payload = token.split('.')[1];
   return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
@@ -30,6 +44,8 @@ async function refreshAccessToken(refreshToken) {
   return { accessToken: data.access_token, userId: parseJwt(data.access_token).sub };
 }
 
+const NEEDS_ENRICHMENT = new Set(['link', 'social', 'youtube', 'music', 'tweet']);
+
 async function saveLink({ accessToken, userId, url, title, tagNames }) {
   const headers = {
     apikey: SUPABASE_ANON_KEY,
@@ -37,11 +53,19 @@ async function saveLink({ accessToken, userId, url, title, tagNames }) {
     'Content-Type': 'application/json',
   };
   const source = detectSource(url);
+  const contentType = detectContentType(url);
+  const needsEnrichment = NEEDS_ENRICHMENT.has(contentType);
 
   const linkRes = await fetch(`${SUPABASE_URL}/rest/v1/links`, {
     method: 'POST',
     headers: { ...headers, Prefer: 'return=representation' },
-    body: JSON.stringify({ url, title: title || null, source }),
+    body: JSON.stringify({
+      url,
+      title: title || null,
+      source,
+      content_type: contentType,
+      fetch_status: needsEnrichment ? 'pending' : 'ready',
+    }),
   });
   if (!linkRes.ok) throw new Error('Erro ao salvar o link.');
   const [linkRow] = await linkRes.json();
@@ -63,6 +87,19 @@ async function saveLink({ accessToken, userId, url, title, tagNames }) {
       headers: { ...headers, Prefer: 'resolution=ignore-duplicates' },
       body: JSON.stringify({ link_id: linkRow.id, tag_id: tagRow.id }),
     });
+  }
+
+  if (needsEnrichment) {
+    try {
+      await fetch(`${SUPABASE_URL}/functions/v1/fetch-metadata`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ action: 'enrich', linkId: linkRow.id, url, contentType }),
+      });
+    } catch (err) {
+      // Best-effort: a linha já foi salva, só o enriquecimento visual falhou.
+      console.error(err);
+    }
   }
 }
 

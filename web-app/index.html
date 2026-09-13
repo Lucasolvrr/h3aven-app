@@ -40,13 +40,34 @@
 
   <section class="add-link">
     <details>
-      <summary>Adicionar link manualmente</summary>
+      <summary>Adicionar item</summary>
+
+      <div class="type-picker" id="type-picker">
+        <button type="button" class="type-pill active" data-type="link">Link</button>
+        <button type="button" class="type-pill" data-type="youtube">YouTube</button>
+        <button type="button" class="type-pill" data-type="tweet">Tweet</button>
+        <button type="button" class="type-pill" data-type="movie">Filme</button>
+        <button type="button" class="type-pill" data-type="tv">Série</button>
+        <button type="button" class="type-pill" data-type="music">Música</button>
+        <button type="button" class="type-pill" data-type="social">Social</button>
+      </div>
+
       <form id="add-form">
         <input type="url" id="add-url" placeholder="https://..." required />
         <input type="text" id="add-title" placeholder="Título (opcional)" />
         <input type="text" id="add-tags" placeholder="tags separadas por vírgula" />
         <button type="submit">Salvar</button>
       </form>
+
+      <div id="media-search" class="media-search hidden">
+        <div class="media-search-row">
+          <input type="text" id="media-search-input" placeholder="Buscar filme ou série..." />
+          <input type="text" id="media-tags" placeholder="tags separadas por vírgula" />
+          <button type="button" id="media-search-btn">Buscar</button>
+        </div>
+        <p id="media-status" class="muted small"></p>
+        <div id="media-results" class="media-results"></div>
+      </div>
     </details>
   </section>
 
@@ -62,7 +83,7 @@
     </details>
   </section>
 
-  <ul id="link-list"></ul>
+  <ul id="link-list" class="library-grid"></ul>
   <p id="empty-state" class="muted hidden">Nenhum link salvo ainda.</p>
 </div>
 

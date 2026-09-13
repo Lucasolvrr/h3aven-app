@@ -23,8 +23,18 @@ const syncTokenEl = document.getElementById('sync-token');
 const revealBtn = document.getElementById('reveal-token-btn');
 const copyBtn = document.getElementById('copy-token-btn');
 
+const typePicker = document.getElementById('type-picker');
+const mediaSearch = document.getElementById('media-search');
+const mediaSearchInput = document.getElementById('media-search-input');
+const mediaTagsInput = document.getElementById('media-tags');
+const mediaSearchBtn = document.getElementById('media-search-btn');
+const mediaResults = document.getElementById('media-results');
+const mediaStatus = document.getElementById('media-status');
+
 let currentSession = null;
 let allLinks = [];
+let selectedType = 'link';
+let typeManuallyPicked = false;
 
 // Mantém os mesmos valores usados pela extensão (chrome-extension/popup.js)
 function detectSource(url) {
@@ -38,6 +48,22 @@ function detectSource(url) {
     return 'site';
   }
 }
+
+// Classificação mais rica usada para buscar metadados/renderizar cards.
+function detectContentType(url) {
+  try {
+    const host = new URL(url).hostname.replace('www.', '');
+    if (host.includes('youtube.com') || host.includes('youtu.be')) return 'youtube';
+    if (host.includes('open.spotify.com')) return 'music';
+    if ((host.includes('twitter.com') || host.includes('x.com')) && /\/status\//.test(url)) return 'tweet';
+    if (host.includes('reddit.com')) return 'social';
+    return 'link';
+  } catch {
+    return 'link';
+  }
+}
+
+const NEEDS_ENRICHMENT = new Set(['link', 'social', 'youtube', 'music', 'tweet']);
 
 function capitalize(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -101,7 +127,7 @@ copyBtn.addEventListener('click', async () => {
 async function loadLinks() {
   const { data, error } = await supabase
     .from('links')
-    .select('id, url, title, description, source, created_at, link_tags(tags(id, name))')
+    .select('id, url, title, description, source, content_type, metadata, fetch_status, created_at, link_tags(tags(id, name))')
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -128,63 +154,180 @@ function populateTagFilter(links) {
   tagFilter.value = current;
 }
 
+function matchesQuery(link, query) {
+  if (!query) return true;
+  const meta = link.metadata || {};
+  const haystack = [link.title, link.url, meta.title, meta.description, meta.overview, meta.author]
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+  return haystack.includes(query);
+}
+
 function renderLinks(links) {
   const query = searchInput.value.trim().toLowerCase();
   const tag = tagFilter.value;
 
   const filtered = links.filter((l) => {
-    const matchesQuery =
-      !query ||
-      (l.title || '').toLowerCase().includes(query) ||
-      l.url.toLowerCase().includes(query);
     const matchesTag = !tag || l.link_tags.some((lt) => lt.tags.name === tag);
-    return matchesQuery && matchesTag;
+    return matchesQuery(l, query) && matchesTag;
   });
 
   linkList.innerHTML = '';
   emptyState.classList.toggle('hidden', filtered.length > 0);
 
-  filtered.forEach((link) => {
-    const li = document.createElement('li');
+  filtered.forEach((link) => linkList.appendChild(buildCard(link)));
+}
 
-    const titleRow = document.createElement('div');
-    titleRow.className = 'link-title-row';
-    const a = document.createElement('a');
-    a.href = link.url;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    a.className = 'link-title';
-    a.textContent = link.title || link.url;
-    const delBtn = document.createElement('button');
-    delBtn.className = 'delete-btn';
-    delBtn.textContent = 'Remover';
-    delBtn.addEventListener('click', () => deleteLink(link.id));
-    titleRow.append(a, delBtn);
+function posterUrl(path) {
+  return path ? `https://image.tmdb.org/t/p/w342${path}` : null;
+}
 
+function cardImageFor(link) {
+  const meta = link.metadata || {};
+  if (link.content_type === 'movie' || link.content_type === 'tv') return posterUrl(meta.posterPath);
+  return meta.image || null;
+}
+
+function cardTitleFor(link) {
+  const meta = link.metadata || {};
+  return meta.title || link.title || link.url;
+}
+
+function cardSubtitleFor(link) {
+  const meta = link.metadata || {};
+  if (link.content_type === 'movie' || link.content_type === 'tv') {
+    return meta.year ? `${meta.year} · ${link.content_type === 'movie' ? 'Filme' : 'Série'}` : null;
+  }
+  if (link.content_type === 'youtube') return meta.author || null;
+  if (link.content_type === 'tweet') return meta.author ? `@${meta.author}` : null;
+  return null;
+}
+
+function cardDescriptionFor(link) {
+  const meta = link.metadata || {};
+  return meta.overview || meta.description || null;
+}
+
+function buildCard(link) {
+  const li = document.createElement('li');
+  li.className = `card card--${link.content_type || 'link'}`;
+  if (link.fetch_status === 'pending') li.classList.add('is-pending');
+  if (link.fetch_status === 'failed') li.classList.add('is-failed');
+
+  const image = cardImageFor(link);
+  if (image) {
+    const media = document.createElement('a');
+    media.href = link.url;
+    media.target = '_blank';
+    media.rel = 'noopener noreferrer';
+    media.className = 'card-media';
+    const img = document.createElement('img');
+    img.src = image;
+    img.loading = 'lazy';
+    img.alt = '';
+    media.appendChild(img);
+    li.appendChild(media);
+  } else if (link.fetch_status === 'pending') {
+    const media = document.createElement('div');
+    media.className = 'card-media';
+    li.appendChild(media);
+  }
+
+  const body = document.createElement('div');
+  body.className = 'card-body';
+
+  const title = document.createElement('a');
+  title.href = link.url;
+  title.target = '_blank';
+  title.rel = 'noopener noreferrer';
+  title.className = 'card-title';
+  title.textContent = cardTitleFor(link);
+  body.appendChild(title);
+
+  const subtitle = cardSubtitleFor(link);
+  if (subtitle) {
+    const sub = document.createElement('div');
+    sub.className = 'card-subtitle';
+    sub.textContent = subtitle;
+    body.appendChild(sub);
+  }
+
+  const description = cardDescriptionFor(link);
+  if (description) {
+    const desc = document.createElement('div');
+    desc.className = 'card-description';
+    desc.textContent = description;
+    body.appendChild(desc);
+  }
+
+  if (!image && link.content_type === 'link') {
     const urlEl = document.createElement('div');
-    urlEl.className = 'link-url';
+    urlEl.className = 'card-url';
     urlEl.textContent = link.url;
+    body.appendChild(urlEl);
+  }
 
-    const metaEl = document.createElement('div');
-    metaEl.className = 'link-meta';
-    const badge = document.createElement('span');
-    badge.className = 'source-badge';
-    badge.textContent = capitalize(link.source || detectSource(link.url));
-    metaEl.appendChild(badge);
-    link.link_tags.forEach((lt) => {
-      const chip = document.createElement('span');
-      chip.className = 'tag-chip';
-      chip.textContent = `#${lt.tags.name}`;
-      metaEl.appendChild(chip);
-    });
+  if (link.fetch_status === 'failed') {
+    const failedNote = document.createElement('div');
+    failedNote.className = 'card-subtitle fetch-failed';
+    failedNote.textContent = 'Não foi possível buscar detalhes';
+    body.appendChild(failedNote);
+  }
 
-    li.append(titleRow, urlEl, metaEl);
-    linkList.appendChild(li);
+  const metaEl = document.createElement('div');
+  metaEl.className = 'card-meta';
+  const badge = document.createElement('span');
+  badge.className = 'source-badge';
+  badge.textContent = capitalize(link.source || detectSource(link.url));
+  metaEl.appendChild(badge);
+  link.link_tags.forEach((lt) => {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip';
+    chip.textContent = `#${lt.tags.name}`;
+    metaEl.appendChild(chip);
   });
+  body.appendChild(metaEl);
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'delete-btn';
+  delBtn.textContent = 'Remover';
+  delBtn.addEventListener('click', () => deleteLink(link.id));
+  body.appendChild(delBtn);
+
+  li.appendChild(body);
+  return li;
 }
 
 searchInput.addEventListener('input', () => renderLinks(allLinks));
 tagFilter.addEventListener('change', () => renderLinks(allLinks));
+
+// --- Seletor de tipo ---
+
+typePicker.addEventListener('click', (e) => {
+  const btn = e.target.closest('.type-pill');
+  if (!btn) return;
+  typeManuallyPicked = true;
+  setSelectedType(btn.dataset.type);
+});
+
+function setSelectedType(type) {
+  selectedType = type;
+  [...typePicker.querySelectorAll('.type-pill')].forEach((btn) => {
+    btn.classList.toggle('active', btn.dataset.type === type);
+  });
+  const isMedia = type === 'movie' || type === 'tv';
+  addForm.classList.toggle('hidden', isMedia);
+  mediaSearch.classList.toggle('hidden', !isMedia);
+}
+
+document.getElementById('add-url').addEventListener('input', (e) => {
+  if (typeManuallyPicked) return;
+  const detected = detectContentType(e.target.value.trim());
+  setSelectedType(detected);
+});
+
+// --- Salvar item comum (link/youtube/tweet/music/social) ---
 
 addForm.addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -195,15 +338,25 @@ addForm.addEventListener('submit', async (e) => {
     ? tagsRaw.split(',').map((t) => t.trim().replace(/^#/, '')).filter(Boolean)
     : [];
 
-  await saveLink({ url, title, tagNames });
+  await saveLink({ url, title, tagNames, contentType: selectedType });
   addForm.reset();
+  typeManuallyPicked = false;
+  setSelectedType('link');
 });
 
-async function saveLink({ url, title, tagNames }) {
+async function saveLink({ url, title, tagNames, contentType }) {
   const source = detectSource(url);
+  const needsEnrichment = NEEDS_ENRICHMENT.has(contentType);
+
   const { data: linkRow, error: linkError } = await supabase
     .from('links')
-    .insert({ url, title: title || null, source })
+    .insert({
+      url,
+      title: title || null,
+      source,
+      content_type: contentType,
+      fetch_status: needsEnrichment ? 'pending' : 'ready',
+    })
     .select()
     .single();
 
@@ -212,6 +365,16 @@ async function saveLink({ url, title, tagNames }) {
     return;
   }
 
+  await attachTags(linkRow.id, tagNames);
+  loadLinks();
+
+  if (needsEnrichment) {
+    await enrichLink(linkRow.id, url, contentType);
+    loadLinks();
+  }
+}
+
+async function attachTags(linkId, tagNames) {
   for (const name of tagNames) {
     const { data: tagRow, error: tagError } = await supabase
       .from('tags')
@@ -224,14 +387,124 @@ async function saveLink({ url, title, tagNames }) {
       continue;
     }
 
-    await supabase.from('link_tags').insert({ link_id: linkRow.id, tag_id: tagRow.id });
+    await supabase.from('link_tags').insert({ link_id: linkId, tag_id: tagRow.id });
   }
+}
 
-  loadLinks();
+async function enrichLink(linkId, url, contentType) {
+  try {
+    const { error } = await supabase.functions.invoke('fetch-metadata', {
+      body: { action: 'enrich', linkId, url, contentType },
+    });
+    if (error) console.error(error);
+  } catch (err) {
+    console.error(err);
+  }
 }
 
 async function deleteLink(id) {
   await supabase.from('links').delete().eq('id', id);
+  loadLinks();
+}
+
+// --- Busca de filmes/séries (TMDB via Edge Function) ---
+
+mediaSearchBtn.addEventListener('click', () => runMediaSearch());
+mediaSearchInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    runMediaSearch();
+  }
+});
+
+async function runMediaSearch() {
+  const query = mediaSearchInput.value.trim();
+  if (!query) return;
+
+  mediaStatus.textContent = 'Buscando...';
+  mediaResults.innerHTML = '';
+
+  const { data, error } = await supabase.functions.invoke('fetch-metadata', {
+    body: { action: 'search', query, mediaType: selectedType },
+  });
+
+  if (error) {
+    mediaStatus.textContent = `Erro na busca: ${error.message}`;
+    return;
+  }
+
+  const results = data?.results || [];
+  mediaStatus.textContent = results.length ? '' : 'Nada encontrado.';
+  results.forEach((r) => mediaResults.appendChild(buildMediaResult(r)));
+}
+
+function buildMediaResult(result) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'media-result';
+
+  const poster = posterUrl(result.posterPath);
+  if (poster) {
+    const img = document.createElement('img');
+    img.src = poster;
+    img.alt = '';
+    img.loading = 'lazy';
+    btn.appendChild(img);
+  }
+
+  const info = document.createElement('div');
+  info.className = 'media-result-info';
+  const title = document.createElement('div');
+  title.className = 'media-result-title';
+  title.textContent = result.title;
+  const year = document.createElement('div');
+  year.className = 'media-result-year';
+  year.textContent = result.year || '';
+  info.append(title, year);
+  btn.appendChild(info);
+
+  btn.addEventListener('click', () => saveMediaResult(result));
+  return btn;
+}
+
+async function saveMediaResult(result) {
+  const tagsRaw = mediaTagsInput.value.trim();
+  const tagNames = tagsRaw
+    ? tagsRaw.split(',').map((t) => t.trim().replace(/^#/, '')).filter(Boolean)
+    : [];
+
+  const mediaType = result.mediaType === 'tv' ? 'tv' : 'movie';
+  const url = `https://www.themoviedb.org/${mediaType}/${result.id}`;
+
+  const { data: linkRow, error } = await supabase
+    .from('links')
+    .insert({
+      url,
+      title: result.title,
+      source: 'tmdb',
+      content_type: mediaType,
+      external_id: `tmdb:${mediaType}:${result.id}`,
+      fetch_status: 'ready',
+      metadata: {
+        title: result.title,
+        year: result.year,
+        posterPath: result.posterPath,
+        overview: result.overview,
+      },
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  await attachTags(linkRow.id, tagNames);
+  mediaSearchInput.value = '';
+  mediaTagsInput.value = '';
+  mediaResults.innerHTML = '';
+  mediaStatus.textContent = 'Salvo!';
   loadLinks();
 }
 

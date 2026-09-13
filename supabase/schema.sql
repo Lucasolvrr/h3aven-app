@@ -53,3 +53,14 @@ create policy "link_tags: only owner" on link_tags
 create index if not exists links_user_id_idx on links(user_id);
 create index if not exists links_created_at_idx on links(created_at desc);
 create index if not exists tags_user_id_idx on tags(user_id);
+
+-- Migração: biblioteca multi-tipo (filmes/séries, música, vídeos, tweets, links)
+alter table links
+  add column if not exists content_type text not null default 'link'
+    check (content_type in ('link','youtube','tweet','movie','tv','music','social')),
+  add column if not exists metadata jsonb not null default '{}'::jsonb,
+  add column if not exists fetch_status text not null default 'ready'
+    check (fetch_status in ('pending','ready','failed','manual')),
+  add column if not exists external_id text;
+
+create index if not exists links_content_type_idx on links(content_type);

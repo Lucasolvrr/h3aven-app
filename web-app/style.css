@@ -137,39 +137,114 @@ details form input {
   white-space: nowrap;
 }
 
-/* Link list */
+/* Type picker */
+.type-picker { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.type-pill {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 13px;
+}
+.type-pill.active {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
+
+/* Movie/TV search */
+.media-search { margin-top: 12px; }
+.media-search-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.media-search-row input {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-family: inherit;
+  font-size: 14px;
+  flex: 1;
+  min-width: 140px;
+}
+.media-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.media-result {
+  cursor: pointer;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: white;
+  text-align: left;
+  padding: 0;
+  color: var(--ink);
+  font-family: inherit;
+}
+.media-result img {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  display: block;
+  background: var(--bg);
+}
+.media-result .media-result-info { padding: 6px 8px; }
+.media-result .media-result-title { font-size: 12px; font-weight: 500; line-height: 1.3; }
+.media-result .media-result-year { font-size: 11px; color: var(--muted); }
+
+/* Library grid */
 #link-list {
   list-style: none;
   margin: 24px 0 0;
   padding: 0;
-  border-top: 1px solid var(--line);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
 }
-#link-list li {
-  padding: 14px 0;
-  border-bottom: 1px solid var(--line);
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: white;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  overflow: hidden;
 }
-.link-title-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
+.card-media {
+  display: block;
+  background: var(--bg);
+  position: relative;
 }
-.link-title {
+.card-media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.card--movie .card-media, .card--tv .card-media { aspect-ratio: 2 / 3; }
+.card--youtube .card-media { aspect-ratio: 16 / 9; }
+.card--music .card-media { aspect-ratio: 1 / 1; }
+.card-body { padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.card-title {
   font-weight: 500;
+  font-size: 14px;
   text-decoration: none;
   color: var(--ink);
+  line-height: 1.3;
 }
-.link-title:hover { color: var(--accent); }
-.link-url {
-  font-family: 'IBM Plex Mono', monospace;
+.card-title:hover { color: var(--accent); }
+.card-subtitle { font-size: 12px; color: var(--muted); }
+.card-description {
   font-size: 12px;
+  color: var(--muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.card-url {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
   color: var(--muted);
   word-break: break-all;
 }
-.link-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.card-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: auto; padding-top: 6px; }
 .source-badge {
   font-size: 11px;
   color: var(--muted);
@@ -191,4 +266,23 @@ details form input {
   font-size: 12px;
   cursor: pointer;
   padding: 0;
+  align-self: flex-start;
+}
+
+.card.is-pending .card-media {
+  animation: shimmer 1.4s infinite;
+  background: linear-gradient(90deg, var(--bg) 25%, #ececec 37%, var(--bg) 63%);
+  background-size: 400% 100%;
+  min-height: 80px;
+}
+.card.is-pending .card-title::after {
+  content: ' · carregando…';
+  color: var(--muted);
+  font-weight: 400;
+}
+.card.is-failed .card-subtitle.fetch-failed { color: var(--danger); }
+
+@keyframes shimmer {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
 }
