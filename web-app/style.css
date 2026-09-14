@@ -1,4 +1,14 @@
+@font-face {
+  font-family: 'Lastik Free';
+  src: url('fonts/LastikFreeFont-Free.woff2') format('woff2'),
+       url('fonts/LastikFreeFont-Free.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
+  --font-display: 'Lastik Free', 'Inter', system-ui, sans-serif;
   --bg: #050505;
   --surface-1: #151515;
   --surface-2: #1e1e1e;
@@ -30,6 +40,7 @@ h1 {
   font-size: 24px;
   font-weight: 500;
   margin: 0;
+  font-family: var(--font-display);
 }
 
 .muted { color: var(--muted); }
@@ -118,7 +129,7 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
 .sidebar.collapsed .sidebar-collapse-btn svg { transform: rotate(180deg); }
 
 .sidebar-brand { padding: 4px 12px 12px; }
-.sidebar-brand-text { font-size: 18px; font-weight: 500; color: var(--ink); }
+.sidebar-brand-text { font-size: 18px; font-weight: 500; color: var(--ink); font-family: var(--font-display); }
 
 .sidebar-nav { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .sidebar-link {
@@ -326,8 +337,9 @@ details form input {
 
 .card-body { padding: 10px 4px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
 .card-title {
+  font-family: var(--font-display);
   font-weight: 500;
-  font-size: 13px;
+  font-size: 14px;
   text-decoration: none;
   color: var(--muted);
   line-height: 1.4;
@@ -437,7 +449,7 @@ details form input {
   text-decoration: none;
 }
 .quickview-info { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.quickview-info h2 { font-size: 21px; font-weight: 500; margin: 0; }
+.quickview-info h2 { font-size: 21px; font-weight: 500; margin: 0; font-family: var(--font-display); }
 .quickview-meta { display: flex; gap: 10px; flex-wrap: wrap; }
 #quickview-subtitle-row { font-size: 13px; color: var(--muted); margin-top: -8px; }
 .quickview-section h3 {
