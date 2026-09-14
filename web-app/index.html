@@ -39,11 +39,6 @@
       <a href="#/filmes" class="nav-link" data-view="filmes">Filmes &amp; Séries</a>
       <a href="#/musica" class="nav-link" data-view="musica">Música</a>
     </nav>
-    <div class="app-header-search">
-      <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
-      <input type="search" id="search-input" placeholder="Buscar por título ou URL" autocomplete="off" />
-      <div id="search-suggestions" class="search-suggestions hidden"></div>
-    </div>
     <div class="avatar-wrap">
       <button id="avatar-btn" class="avatar-btn" aria-label="Conta"></button>
       <div id="avatar-menu" class="avatar-menu hidden">
@@ -61,6 +56,12 @@
       <div class="hero-overlay"></div>
       <div class="hero-content">
         <p id="hero-greeting" class="hero-greeting"></p>
+        <form class="hero-search-bar" id="hero-search-form">
+          <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+          <input type="search" id="search-input" placeholder="Faça sua busca" autocomplete="off" />
+          <button type="submit">Buscar</button>
+          <div id="search-suggestions" class="search-suggestions hidden"></div>
+        </form>
         <div class="type-picker hero-pills" id="home-pills">
           <button type="button" class="filter-pill active" data-filter="">Tudo</button>
           <button type="button" class="filter-pill" data-filter="link">Links</button>

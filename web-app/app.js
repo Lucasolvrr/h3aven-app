@@ -494,7 +494,12 @@ searchInput.addEventListener('input', () => {
 });
 searchInput.addEventListener('focus', () => renderSearchSuggestions());
 document.addEventListener('click', (e) => {
-  if (!e.target.closest('.app-header-search')) searchSuggestions.classList.add('hidden');
+  if (!e.target.closest('.hero-search-bar')) searchSuggestions.classList.add('hidden');
+});
+document.getElementById('hero-search-form').addEventListener('submit', (e) => {
+  e.preventDefault();
+  renderLinks(allLinks);
+  searchSuggestions.classList.add('hidden');
 });
 tagFilter.addEventListener('change', () => renderLinks(allLinks));
 
