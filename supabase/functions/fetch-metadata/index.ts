@@ -20,7 +20,7 @@ const CORS_HEADERS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const TMDB_API_KEY = Deno.env.get('TMDB_API_KEY');
+const TMDB_API_KEY = (Deno.env.get('TMDB_API_KEY') || '').trim();
 const TMDB_BASE = 'https://api.themoviedb.org/3';
 
 function json(body, status = 200) {
