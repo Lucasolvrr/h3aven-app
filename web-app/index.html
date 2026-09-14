@@ -122,6 +122,43 @@
   </main>
 </div>
 
+<div id="quickview-overlay" class="quickview-overlay hidden">
+  <div class="quickview" role="dialog" aria-modal="true">
+    <button id="quickview-close" class="quickview-close" aria-label="Fechar">&times;</button>
+    <div class="quickview-media">
+      <img id="quickview-img" alt="" />
+      <a id="quickview-open-link" class="quickview-open-btn" target="_blank" rel="noopener noreferrer">Abrir original ↗</a>
+    </div>
+    <div class="quickview-info">
+      <h2 id="quickview-title"></h2>
+      <div class="quickview-meta">
+        <span id="quickview-domain" class="muted small"></span>
+        <span id="quickview-time" class="muted small"></span>
+      </div>
+      <div class="quickview-section" id="quickview-subtitle-row"></div>
+      <div class="quickview-section">
+        <h3>TLDR</h3>
+        <p id="quickview-description" class="muted small"></p>
+      </div>
+      <div class="quickview-section">
+        <h3>Tags</h3>
+        <div id="quickview-tags" class="quickview-tags"></div>
+        <form id="quickview-add-tag-form">
+          <input id="quickview-tag-input" placeholder="Adicionar tag" autocomplete="off" />
+        </form>
+      </div>
+      <div class="quickview-section">
+        <h3>Notas</h3>
+        <textarea id="quickview-notes" placeholder="Escreva algo sobre esse item..."></textarea>
+      </div>
+      <div class="quickview-actions">
+        <button id="quickview-copy-btn" type="button" class="ghost small-btn">Copiar link</button>
+        <button id="quickview-delete-btn" type="button" class="ghost small-btn danger-btn">Remover</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script type="module" src="app.js"></script>
 </body>
 </html>

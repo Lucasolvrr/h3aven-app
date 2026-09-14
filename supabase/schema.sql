@@ -69,3 +69,6 @@ create index if not exists links_content_type_idx on links(content_type);
 alter table links drop constraint if exists links_content_type_check;
 alter table links add constraint links_content_type_check
   check (content_type in ('link','youtube','tweet','movie','tv','music','social','instagram'));
+
+-- Migração: notas pessoais por item (usadas no modal de quickview)
+alter table links add column if not exists notes text;

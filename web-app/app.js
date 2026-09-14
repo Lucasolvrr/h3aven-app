@@ -35,6 +35,22 @@ const mediaSearchBtn = document.getElementById('media-search-btn');
 const mediaResults = document.getElementById('media-results');
 const mediaStatus = document.getElementById('media-status');
 
+const quickviewOverlay = document.getElementById('quickview-overlay');
+const quickviewClose = document.getElementById('quickview-close');
+const quickviewImg = document.getElementById('quickview-img');
+const quickviewOpenLink = document.getElementById('quickview-open-link');
+const quickviewTitle = document.getElementById('quickview-title');
+const quickviewDomain = document.getElementById('quickview-domain');
+const quickviewTime = document.getElementById('quickview-time');
+const quickviewSubtitleRow = document.getElementById('quickview-subtitle-row');
+const quickviewDescription = document.getElementById('quickview-description');
+const quickviewTags = document.getElementById('quickview-tags');
+const quickviewAddTagForm = document.getElementById('quickview-add-tag-form');
+const quickviewTagInput = document.getElementById('quickview-tag-input');
+const quickviewNotes = document.getElementById('quickview-notes');
+const quickviewCopyBtn = document.getElementById('quickview-copy-btn');
+const quickviewDeleteBtn = document.getElementById('quickview-delete-btn');
+
 let currentSession = null;
 let allLinks = [];
 let selectedType = 'link';
@@ -48,6 +64,7 @@ const VIEWS = {
 };
 const ROUTES = { '': 'home', filmes: 'filmes', musica: 'musica' };
 let currentView = 'home';
+let currentQuickviewLink = null;
 
 // Mantém os mesmos valores usados pela extensão (chrome-extension/popup.js)
 function detectSource(url) {
@@ -78,10 +95,6 @@ function detectContentType(url) {
 }
 
 const NEEDS_ENRICHMENT = new Set(['link', 'social', 'youtube', 'music', 'tweet', 'instagram']);
-
-function capitalize(s) {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
 
 async function init() {
   initSidebarCollapse();
@@ -169,7 +182,7 @@ copyBtn.addEventListener('click', async () => {
 async function loadLinks() {
   const { data, error } = await supabase
     .from('links')
-    .select('id, url, title, description, source, content_type, metadata, fetch_status, created_at, link_tags(tags(id, name))')
+    .select('id, url, title, description, source, content_type, metadata, fetch_status, notes, created_at, link_tags(tags(id, name))')
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -259,13 +272,12 @@ function buildCard(link) {
   li.className = `card card--${link.content_type || 'link'}`;
   if (link.fetch_status === 'pending') li.classList.add('is-pending');
   if (link.fetch_status === 'failed') li.classList.add('is-failed');
+  li.setAttribute('role', 'button');
+  li.tabIndex = 0;
 
   const image = cardImageFor(link);
   if (image) {
-    const media = document.createElement('a');
-    media.href = link.url;
-    media.target = '_blank';
-    media.rel = 'noopener noreferrer';
+    const media = document.createElement('div');
     media.className = 'card-media';
     const img = document.createElement('img');
     img.src = image;
@@ -282,67 +294,149 @@ function buildCard(link) {
   const body = document.createElement('div');
   body.className = 'card-body';
 
-  const title = document.createElement('a');
-  title.href = link.url;
-  title.target = '_blank';
-  title.rel = 'noopener noreferrer';
+  const title = document.createElement('span');
   title.className = 'card-title';
   title.textContent = cardTitleFor(link);
   body.appendChild(title);
 
-  const subtitle = cardSubtitleFor(link);
-  if (subtitle) {
-    const sub = document.createElement('div');
-    sub.className = 'card-subtitle';
-    sub.textContent = subtitle;
-    body.appendChild(sub);
+  li.appendChild(body);
+
+  li.addEventListener('click', () => openQuickview(link));
+  li.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      openQuickview(link);
+    }
+  });
+
+  return li;
+}
+
+// --- Quickview modal ---
+
+function timeAgo(dateStr) {
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return 'agora mesmo';
+  if (minutes < 60) return `há ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `há ${hours}h`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `há ${days}d`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `há ${months} m${months > 1 ? 'eses' : 'ês'}`;
+  return `há ${Math.floor(months / 12)} ano(s)`;
+}
+
+function domainFor(url) {
+  try {
+    return new URL(url).hostname.replace('www.', '');
+  } catch {
+    return '';
   }
+}
+
+function openQuickview(link) {
+  currentQuickviewLink = link;
+
+  const image = cardImageFor(link);
+  quickviewImg.classList.toggle('hidden', !image);
+  quickviewImg.src = image || '';
+
+  quickviewTitle.textContent = cardTitleFor(link);
+  quickviewDomain.textContent = domainFor(link.url);
+  quickviewTime.textContent = timeAgo(link.created_at);
+  quickviewOpenLink.href = link.url;
+
+  const subtitle = cardSubtitleFor(link);
+  quickviewSubtitleRow.textContent = subtitle || '';
+  quickviewSubtitleRow.classList.toggle('hidden', !subtitle);
 
   const description = cardDescriptionFor(link);
-  if (description) {
-    const desc = document.createElement('div');
-    desc.className = 'card-description';
-    desc.textContent = description;
-    body.appendChild(desc);
-  }
+  quickviewDescription.textContent = description || 'Sem resumo disponível.';
 
-  if (!image && link.content_type === 'link') {
-    const urlEl = document.createElement('div');
-    urlEl.className = 'card-url';
-    urlEl.textContent = link.url;
-    body.appendChild(urlEl);
-  }
+  renderQuickviewTags(link);
 
-  if (link.fetch_status === 'failed') {
-    const failedNote = document.createElement('div');
-    failedNote.className = 'card-subtitle fetch-failed';
-    failedNote.textContent = 'Não foi possível buscar detalhes';
-    body.appendChild(failedNote);
-  }
+  quickviewNotes.value = link.notes || '';
 
-  const metaEl = document.createElement('div');
-  metaEl.className = 'card-meta';
-  const badge = document.createElement('span');
-  badge.className = 'source-badge';
-  badge.textContent = capitalize(link.source || detectSource(link.url));
-  metaEl.appendChild(badge);
+  quickviewOverlay.classList.remove('hidden');
+}
+
+function closeQuickview() {
+  quickviewOverlay.classList.add('hidden');
+  currentQuickviewLink = null;
+}
+
+function renderQuickviewTags(link) {
+  quickviewTags.innerHTML = '';
   link.link_tags.forEach((lt) => {
     const chip = document.createElement('span');
     chip.className = 'tag-chip';
-    chip.textContent = `#${lt.tags.name}`;
-    metaEl.appendChild(chip);
+    const label = document.createElement('span');
+    label.textContent = `#${lt.tags.name}`;
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.textContent = '×';
+    removeBtn.addEventListener('click', () => removeQuickviewTag(link, lt.tags.id));
+    chip.append(label, removeBtn);
+    quickviewTags.appendChild(chip);
   });
-  body.appendChild(metaEl);
-
-  const delBtn = document.createElement('button');
-  delBtn.className = 'delete-btn';
-  delBtn.textContent = 'Remover';
-  delBtn.addEventListener('click', () => deleteLink(link.id));
-  body.appendChild(delBtn);
-
-  li.appendChild(body);
-  return li;
 }
+
+async function removeQuickviewTag(link, tagId) {
+  await supabase.from('link_tags').delete().eq('link_id', link.id).eq('tag_id', tagId);
+  link.link_tags = link.link_tags.filter((lt) => lt.tags.id !== tagId);
+  renderQuickviewTags(link);
+  loadLinks();
+}
+
+quickviewAddTagForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const name = quickviewTagInput.value.trim().replace(/^#/, '');
+  if (!name || !currentQuickviewLink) return;
+  await attachTags(currentQuickviewLink.id, [name]);
+  quickviewTagInput.value = '';
+
+  const { data: tagRow } = await supabase
+    .from('tags')
+    .select('id, name')
+    .eq('user_id', currentSession.user.id)
+    .eq('name', name)
+    .single();
+  if (tagRow && !currentQuickviewLink.link_tags.some((lt) => lt.tags.id === tagRow.id)) {
+    currentQuickviewLink.link_tags.push({ tags: tagRow });
+  }
+  renderQuickviewTags(currentQuickviewLink);
+  loadLinks();
+});
+
+quickviewNotes.addEventListener('blur', async () => {
+  if (!currentQuickviewLink) return;
+  const notes = quickviewNotes.value.trim();
+  await supabase.from('links').update({ notes: notes || null }).eq('id', currentQuickviewLink.id);
+  currentQuickviewLink.notes = notes;
+});
+
+quickviewCopyBtn.addEventListener('click', async () => {
+  if (!currentQuickviewLink) return;
+  await navigator.clipboard.writeText(currentQuickviewLink.url);
+  quickviewCopyBtn.textContent = 'Copiado!';
+  setTimeout(() => (quickviewCopyBtn.textContent = 'Copiar link'), 1500);
+});
+
+quickviewDeleteBtn.addEventListener('click', async () => {
+  if (!currentQuickviewLink) return;
+  await deleteLink(currentQuickviewLink.id);
+  closeQuickview();
+});
+
+quickviewClose.addEventListener('click', closeQuickview);
+quickviewOverlay.addEventListener('click', (e) => {
+  if (e.target === quickviewOverlay) closeQuickview();
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !quickviewOverlay.classList.contains('hidden')) closeQuickview();
+});
 
 searchInput.addEventListener('input', () => renderLinks(allLinks));
 tagFilter.addEventListener('change', () => renderLinks(allLinks));
