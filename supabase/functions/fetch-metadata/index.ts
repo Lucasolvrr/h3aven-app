@@ -58,22 +58,67 @@ async function fetchOEmbed(endpoint) {
   return res.json();
 }
 
-async function scrapeOg(url) {
-  const res = await withTimeout((signal) =>
-    fetch(url, {
-      signal,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; h3avenBot/1.0; +https://h3aven.netlify.app)',
-      },
-    })
+const MICROLINK_TIMEOUT = 15000;
+
+// microlink.io: free, no API key, renders the page in a real (headless) browser.
+// Used as a fallback — both for pages that block a plain fetch() (bot
+// protection) and for pages that respond fine but have no og:image tag.
+async function microlinkFetch(url, { screenshot = false, meta = true } = {}) {
+  const params = new URLSearchParams({ url, meta: String(meta) });
+  if (screenshot) params.set('screenshot', 'true');
+  const res = await withTimeout(
+    (signal) => fetch(`https://api.microlink.io/?${params.toString()}`, { signal }),
+    MICROLINK_TIMEOUT
   );
-  if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
-  const html = await res.text();
+  if (!res.ok) throw new Error(`microlink failed: ${res.status}`);
+  const body = await res.json();
+  if (body.status !== 'success') throw new Error('microlink: unsuccessful response');
+  return body.data;
+}
+
+async function microlinkScreenshot(url) {
+  const data = await microlinkFetch(url, { screenshot: true, meta: false });
+  if (!data.screenshot || !data.screenshot.url) throw new Error('microlink: no screenshot url');
+  return data.screenshot.url;
+}
+
+async function microlinkFull(url) {
+  const data = await microlinkFetch(url, { screenshot: true, meta: true });
   return {
+    title: data.title || null,
+    description: data.description || null,
+    image: (data.screenshot && data.screenshot.url) || (data.image && data.image.url) || null,
+  };
+}
+
+async function scrapeOg(url) {
+  let html;
+  try {
+    const res = await withTimeout((signal) =>
+      fetch(url, {
+        signal,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; h3avenBot/1.0; +https://h3aven.netlify.app)',
+        },
+      })
+    );
+    if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
+    html = await res.text();
+  } catch {
+    // Fetch direto falhou (bot protection, etc.) — microlink usa um navegador
+    // de verdade e às vezes consegue passar onde um fetch simples não passa.
+    return microlinkFull(url);
+  }
+
+  const meta = {
     title: extractOgTag(html, 'title'),
     image: extractOgTag(html, 'image'),
     description: extractOgTag(html, 'description'),
   };
+  if (!meta.image) {
+    meta.image = await microlinkScreenshot(url).catch(() => null);
+  }
+  return meta;
 }
 
 async function enrichYoutube(url) {
