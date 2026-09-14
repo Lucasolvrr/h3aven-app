@@ -267,6 +267,27 @@ function cardDescriptionFor(link) {
   return meta.overview || meta.description || null;
 }
 
+function hashString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+// Gradiente único por item, mas sempre dentro da mesma família de azul
+// (mesmo espírito das cores que o usuário pediu: #0052D4 → #65C7F7 → #9CECFB).
+function placeholderGradient(seed) {
+  const hash = hashString(String(seed));
+  const hue = 185 + (hash % 35); // 185–219, mesma faixa das cores originais (#0052D4/#65C7F7/#9CECFB)
+  const angle = 30 + (hash % 6) * 30; // 30, 60, ..., 180
+  const dark = `hsl(${hue}, 85%, 30%)`;
+  const mid = `hsl(${hue + 8}, 88%, 55%)`;
+  const light = `hsl(${hue + 16}, 92%, 78%)`;
+  return `linear-gradient(${angle}deg, ${dark}, ${mid}, ${light})`;
+}
+
 function buildCard(link) {
   const li = document.createElement('li');
   li.className = `card card--${link.content_type || 'link'}`;
@@ -284,6 +305,8 @@ function buildCard(link) {
     img.loading = 'lazy';
     img.alt = '';
     media.appendChild(img);
+  } else {
+    media.style.background = placeholderGradient(link.id);
   }
   li.appendChild(media);
 
