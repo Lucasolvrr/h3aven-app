@@ -23,9 +23,12 @@ const syncTokenEl = document.getElementById('sync-token');
 const revealBtn = document.getElementById('reveal-token-btn');
 const copyBtn = document.getElementById('copy-token-btn');
 
-const sidebar = document.getElementById('sidebar');
-const sidebarCollapseBtn = document.getElementById('sidebar-collapse-btn');
 const homePills = document.getElementById('home-pills');
+const hero = document.getElementById('hero');
+const heroGreeting = document.getElementById('hero-greeting');
+const avatarBtn = document.getElementById('avatar-btn');
+const avatarMenu = document.getElementById('avatar-menu');
+const avatarWrap = document.querySelector('.avatar-wrap');
 
 const typePicker = document.getElementById('type-picker');
 const mediaSearch = document.getElementById('media-search');
@@ -97,7 +100,10 @@ function detectContentType(url) {
 const NEEDS_ENRICHMENT = new Set(['link', 'social', 'youtube', 'music', 'tweet', 'instagram']);
 
 async function init() {
-  initSidebarCollapse();
+  avatarBtn.addEventListener('click', () => avatarMenu.classList.toggle('hidden'));
+  document.addEventListener('click', (e) => {
+    if (!avatarWrap.contains(e.target)) avatarMenu.classList.add('hidden');
+  });
 
   const { data: { session } } = await supabase.auth.getSession();
   handleSession(session);
@@ -109,14 +115,11 @@ async function init() {
   window.addEventListener('hashchange', renderRoute);
 }
 
-function initSidebarCollapse() {
-  if (localStorage.getItem('h3aven-sidebar-collapsed') === 'true') {
-    sidebar.classList.add('collapsed');
-  }
-  sidebarCollapseBtn.addEventListener('click', () => {
-    const collapsed = sidebar.classList.toggle('collapsed');
-    localStorage.setItem('h3aven-sidebar-collapsed', String(collapsed));
-  });
+function greetingText() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Bom dia. O que você quer salvar hoje?';
+  if (h < 18) return 'Boa tarde. O que você quer salvar hoje?';
+  return 'Boa noite. O que você quer salvar hoje?';
 }
 
 function renderRoute() {
@@ -124,9 +127,10 @@ function renderRoute() {
   const hash = location.hash.replace(/^#\/?/, '');
   currentView = ROUTES[hash] ?? 'home';
 
-  document.querySelectorAll('.sidebar-link').forEach((a) => {
+  document.querySelectorAll('.nav-link').forEach((a) => {
     a.classList.toggle('active', a.dataset.view === currentView);
   });
+  hero.classList.toggle('hidden', currentView !== 'home');
   homePills.classList.toggle('hidden', currentView !== 'home');
   linkList.className = `library-grid layout-${VIEWS[currentView].layout}`;
 
@@ -139,6 +143,8 @@ function handleSession(session) {
     loginView.classList.add('hidden');
     appView.classList.remove('hidden');
     userEmailEl.textContent = session.user.email;
+    avatarBtn.textContent = session.user.email[0].toUpperCase();
+    heroGreeting.textContent = greetingText();
     syncTokenEl.textContent = '••••••••••••••••';
     syncTokenEl.dataset.revealed = 'false';
     syncTokenEl.dataset.value = session.refresh_token;
