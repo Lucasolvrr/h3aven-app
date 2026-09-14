@@ -9,7 +9,7 @@
 
 :root {
   --font-display: 'Lastik Free', 'Inter', system-ui, sans-serif;
-  --bg: #050505;
+  --bg: #101216;
   --surface-1: #151515;
   --surface-2: #1e1e1e;
   --ink: #fdfdfd;
@@ -102,23 +102,27 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
   left: 0;
   right: 0;
   height: 140px;
-  background: linear-gradient(to bottom, var(--bg) 0%, rgba(5, 5, 5, 0.6) 45%, transparent 100%);
+  background: linear-gradient(to bottom, var(--bg) 0%, rgba(16, 18, 22, 0.6) 45%, transparent 100%);
   box-shadow: inset 0 40px 40px -40px rgba(0, 0, 0, 0.6);
   pointer-events: none;
   z-index: 55;
 }
 
-/* Header — floating pill, gap persists while scrolling */
-#app-view.screen { padding-top: 32px; }
+/* Header — floats fixed over the page (and over the hero video) instead of
+   pushing content down, so the video shows through behind/around it. */
+.app-main { padding-top: 96px; }
 .app-header {
-  position: sticky;
+  position: fixed;
   top: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 48px);
+  max-width: 1352px;
   z-index: 60;
   display: flex;
   align-items: center;
   gap: 24px;
   padding: 10px 16px;
-  margin: 0 0 32px;
   background: rgba(21, 21, 21, 0.55);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -262,6 +266,7 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
   position: relative;
   width: 100vw;
   margin-left: calc(-50vw + 50%);
+  margin-top: -96px;
   aspect-ratio: 1920 / 528;
   overflow: hidden;
   margin-bottom: 32px;
@@ -531,7 +536,7 @@ details form input {
   position: absolute;
   top: 8px;
   right: 8px;
-  background: rgba(5, 5, 5, 0.78);
+  background: rgba(16, 18, 22, 0.78);
   color: var(--ink);
   font-size: 11px;
   font-weight: 500;
@@ -571,7 +576,7 @@ details form input {
 .quickview-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(5, 5, 5, 0.75);
+  background: rgba(16, 18, 22, 0.75);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -682,9 +687,10 @@ details form input {
 
 /* Mobile */
 @media (max-width: 720px) {
-  #app-view.screen { padding: 32px 16px 96px; }
-  .app-header { flex-wrap: wrap; gap: 12px; margin: 0 0 24px; padding: 12px 16px; }
-  .hero { aspect-ratio: 1 / 1.1; }
+  #app-view.screen { padding: 0 16px 80px; }
+  .app-main { padding-top: 150px; }
+  .hero { margin-top: -150px; aspect-ratio: 1 / 1.1; }
+  .app-header { flex-wrap: wrap; gap: 12px; padding: 12px 16px; }
   .hero-content { gap: 32px; }
   .hero-greeting { font-size: 32px; }
   .hero-search-bar { height: auto; padding: 8px 8px 8px 20px; }
