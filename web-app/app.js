@@ -259,12 +259,27 @@ function cardSubtitleFor(link) {
   }
   if (link.content_type === 'youtube') return meta.author || null;
   if (link.content_type === 'tweet') return meta.author ? `@${meta.author}` : null;
-  return null;
+  return cardPriceFor(link);
 }
 
 function cardDescriptionFor(link) {
   const meta = link.metadata || {};
   return meta.overview || meta.description || null;
+}
+
+function cardPriceFor(link) {
+  const price = (link.metadata || {}).price;
+  if (!price || !price.amount) return null;
+  const amount = parseFloat(price.amount);
+  if (Number.isNaN(amount)) return null;
+  try {
+    return new Intl.NumberFormat('pt-BR', {
+      style: 'currency',
+      currency: price.currency || 'BRL',
+    }).format(amount);
+  } catch {
+    return `${price.currency || ''} ${amount}`.trim();
+  }
 }
 
 function hashString(str) {
@@ -308,6 +323,15 @@ function buildCard(link) {
   } else {
     media.style.background = placeholderGradient(link.id);
   }
+
+  const price = cardPriceFor(link);
+  if (price) {
+    const priceBadge = document.createElement('span');
+    priceBadge.className = 'card-price-badge';
+    priceBadge.textContent = price;
+    media.appendChild(priceBadge);
+  }
+
   li.appendChild(media);
 
   const body = document.createElement('div');

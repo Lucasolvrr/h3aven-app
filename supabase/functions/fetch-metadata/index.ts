@@ -40,16 +40,31 @@ async function withTimeout(fn, ms = 8000) {
   }
 }
 
-function extractOgTag(html, prop) {
+function extractMetaByProperty(html, property) {
   const patterns = [
-    new RegExp(`<meta[^>]+property=["']og:${prop}["'][^>]+content=["']([^"']*)["']`, 'i'),
-    new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+property=["']og:${prop}["']`, 'i'),
+    new RegExp(`<meta[^>]+property=["']${property}["'][^>]+content=["']([^"']*)["']`, 'i'),
+    new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+property=["']${property}["']`, 'i'),
   ];
   for (const re of patterns) {
     const m = html.match(re);
     if (m) return m[1];
   }
   return null;
+}
+
+function extractOgTag(html, prop) {
+  return extractMetaByProperty(html, `og:${prop}`);
+}
+
+// Páginas de produto (Shopify, WooCommerce, etc.) costumam expor preço via
+// Open Graph Product (product:price:*) — algumas usam og:price:* também.
+function extractPrice(html) {
+  const amount =
+    extractMetaByProperty(html, 'product:price:amount') || extractMetaByProperty(html, 'og:price:amount');
+  if (!amount) return null;
+  const currency =
+    extractMetaByProperty(html, 'product:price:currency') || extractMetaByProperty(html, 'og:price:currency');
+  return { amount, currency: currency || null };
 }
 
 async function fetchOEmbed(endpoint) {
@@ -114,6 +129,7 @@ async function scrapeOg(url) {
     title: extractOgTag(html, 'title'),
     image: extractOgTag(html, 'image'),
     description: extractOgTag(html, 'description'),
+    price: extractPrice(html),
   };
   if (!meta.image) {
     meta.image = await microlinkScreenshot(url).catch(() => null);
