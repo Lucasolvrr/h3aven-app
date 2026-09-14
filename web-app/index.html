@@ -29,10 +29,10 @@
 </div>
 
 <div id="app-view" class="screen hidden">
+  <div class="top-fade"></div>
   <header class="app-header">
     <div class="app-header-brand">
-      <img src="icons/favicon-32.png" alt="" />
-      <span>h3aven</span>
+      <img src="icons/favicon-32.png" alt="h3aven" />
     </div>
     <nav class="app-nav">
       <a href="#/" class="nav-link" data-view="home">Home</a>
@@ -40,7 +40,9 @@
       <a href="#/musica" class="nav-link" data-view="musica">Música</a>
     </nav>
     <div class="app-header-search">
-      <input type="search" id="search-input" placeholder="Buscar por título ou URL" />
+      <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+      <input type="search" id="search-input" placeholder="Buscar por título ou URL" autocomplete="off" />
+      <div id="search-suggestions" class="search-suggestions hidden"></div>
     </div>
     <div class="avatar-wrap">
       <button id="avatar-btn" class="avatar-btn" aria-label="Conta"></button>

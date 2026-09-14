@@ -24,6 +24,7 @@ const revealBtn = document.getElementById('reveal-token-btn');
 const copyBtn = document.getElementById('copy-token-btn');
 
 const homePills = document.getElementById('home-pills');
+const searchSuggestions = document.getElementById('search-suggestions');
 const hero = document.getElementById('hero');
 const heroGreeting = document.getElementById('hero-greeting');
 const avatarBtn = document.getElementById('avatar-btn');
@@ -487,8 +488,53 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !quickviewOverlay.classList.contains('hidden')) closeQuickview();
 });
 
-searchInput.addEventListener('input', () => renderLinks(allLinks));
+searchInput.addEventListener('input', () => {
+  renderLinks(allLinks);
+  renderSearchSuggestions();
+});
+searchInput.addEventListener('focus', () => renderSearchSuggestions());
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.app-header-search')) searchSuggestions.classList.add('hidden');
+});
 tagFilter.addEventListener('change', () => renderLinks(allLinks));
+
+function renderSearchSuggestions() {
+  const query = searchInput.value.trim().toLowerCase();
+  if (!query) {
+    searchSuggestions.classList.add('hidden');
+    searchSuggestions.innerHTML = '';
+    return;
+  }
+
+  const matches = allLinks.filter((l) => matchesQuery(l, query)).slice(0, 6);
+  searchSuggestions.innerHTML = '';
+  if (!matches.length) {
+    searchSuggestions.classList.add('hidden');
+    return;
+  }
+
+  matches.forEach((link) => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'search-suggestion';
+    const image = cardImageFor(link);
+    if (image) {
+      const img = document.createElement('img');
+      img.src = image;
+      img.alt = '';
+      item.appendChild(img);
+    }
+    const label = document.createElement('span');
+    label.textContent = cardTitleFor(link);
+    item.appendChild(label);
+    item.addEventListener('click', () => {
+      openQuickview(link);
+      searchSuggestions.classList.add('hidden');
+    });
+    searchSuggestions.appendChild(item);
+  });
+  searchSuggestions.classList.remove('hidden');
+}
 
 homePills.addEventListener('click', (e) => {
   const btn = e.target.closest('.filter-pill');
