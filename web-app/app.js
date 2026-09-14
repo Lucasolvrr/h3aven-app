@@ -276,20 +276,16 @@ function buildCard(link) {
   li.tabIndex = 0;
 
   const image = cardImageFor(link);
+  const media = document.createElement('div');
+  media.className = image ? 'card-media' : 'card-media card-media--placeholder';
   if (image) {
-    const media = document.createElement('div');
-    media.className = 'card-media';
     const img = document.createElement('img');
     img.src = image;
     img.loading = 'lazy';
     img.alt = '';
     media.appendChild(img);
-    li.appendChild(media);
-  } else if (link.fetch_status === 'pending') {
-    const media = document.createElement('div');
-    media.className = 'card-media';
-    li.appendChild(media);
   }
+  li.appendChild(media);
 
   const body = document.createElement('div');
   body.className = 'card-body';

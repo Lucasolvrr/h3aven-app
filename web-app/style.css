@@ -310,6 +310,12 @@ details form input {
   position: relative;
 }
 .card-media img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 16px; }
+.card-media--placeholder {
+  min-height: 140px;
+  background: #9cecfb;
+  background: linear-gradient(to right, #0052d4, #65c7f7, #9cecfb);
+}
+.layout-masonry .card-media--placeholder { aspect-ratio: 4 / 5; }
 
 .layout-grid .card--movie .card-media, .layout-grid .card--tv .card-media { aspect-ratio: 2 / 3; }
 .layout-grid .card--youtube .card-media { aspect-ratio: 16 / 9; }
