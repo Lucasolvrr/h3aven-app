@@ -349,6 +349,11 @@ function buildCard(link) {
   title.textContent = cardTitleFor(link);
   body.appendChild(title);
 
+  const domain = document.createElement('span');
+  domain.className = 'card-domain';
+  domain.textContent = domainFor(link.url);
+  body.appendChild(domain);
+
   li.appendChild(body);
 
   li.addEventListener('click', () => openQuickview(link));
