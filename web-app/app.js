@@ -23,6 +23,10 @@ const syncTokenEl = document.getElementById('sync-token');
 const revealBtn = document.getElementById('reveal-token-btn');
 const copyBtn = document.getElementById('copy-token-btn');
 
+const sidebar = document.getElementById('sidebar');
+const sidebarCollapseBtn = document.getElementById('sidebar-collapse-btn');
+const homePills = document.getElementById('home-pills');
+
 const typePicker = document.getElementById('type-picker');
 const mediaSearch = document.getElementById('media-search');
 const mediaSearchInput = document.getElementById('media-search-input');
@@ -35,6 +39,15 @@ let currentSession = null;
 let allLinks = [];
 let selectedType = 'link';
 let typeManuallyPicked = false;
+let homeFilter = '';
+
+const VIEWS = {
+  home: { filter: null, layout: 'masonry' },
+  filmes: { filter: (l) => l.content_type === 'movie' || l.content_type === 'tv', layout: 'grid' },
+  musica: { filter: (l) => l.content_type === 'music', layout: 'grid' },
+};
+const ROUTES = { '': 'home', filmes: 'filmes', musica: 'musica' };
+let currentView = 'home';
 
 // Mantém os mesmos valores usados pela extensão (chrome-extension/popup.js)
 function detectSource(url) {
@@ -56,6 +69,7 @@ function detectContentType(url) {
     if (host.includes('youtube.com') || host.includes('youtu.be')) return 'youtube';
     if (host.includes('open.spotify.com')) return 'music';
     if ((host.includes('twitter.com') || host.includes('x.com')) && /\/status\//.test(url)) return 'tweet';
+    if (host.includes('instagram.com')) return 'instagram';
     if (host.includes('reddit.com')) return 'social';
     return 'link';
   } catch {
@@ -63,19 +77,47 @@ function detectContentType(url) {
   }
 }
 
-const NEEDS_ENRICHMENT = new Set(['link', 'social', 'youtube', 'music', 'tweet']);
+const NEEDS_ENRICHMENT = new Set(['link', 'social', 'youtube', 'music', 'tweet', 'instagram']);
 
 function capitalize(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
 async function init() {
+  initSidebarCollapse();
+
   const { data: { session } } = await supabase.auth.getSession();
   handleSession(session);
 
   supabase.auth.onAuthStateChange((_event, session) => {
     handleSession(session);
   });
+
+  window.addEventListener('hashchange', renderRoute);
+}
+
+function initSidebarCollapse() {
+  if (localStorage.getItem('h3aven-sidebar-collapsed') === 'true') {
+    sidebar.classList.add('collapsed');
+  }
+  sidebarCollapseBtn.addEventListener('click', () => {
+    const collapsed = sidebar.classList.toggle('collapsed');
+    localStorage.setItem('h3aven-sidebar-collapsed', String(collapsed));
+  });
+}
+
+function renderRoute() {
+  if (!currentSession) return;
+  const hash = location.hash.replace(/^#\/?/, '');
+  currentView = ROUTES[hash] ?? 'home';
+
+  document.querySelectorAll('.sidebar-link').forEach((a) => {
+    a.classList.toggle('active', a.dataset.view === currentView);
+  });
+  homePills.classList.toggle('hidden', currentView !== 'home');
+  linkList.className = `library-grid layout-${VIEWS[currentView].layout}`;
+
+  renderLinks(allLinks);
 }
 
 function handleSession(session) {
@@ -137,7 +179,7 @@ async function loadLinks() {
 
   allLinks = data;
   populateTagFilter(data);
-  renderLinks(data);
+  renderRoute();
 }
 
 function populateTagFilter(links) {
@@ -167,10 +209,13 @@ function matchesQuery(link, query) {
 function renderLinks(links) {
   const query = searchInput.value.trim().toLowerCase();
   const tag = tagFilter.value;
+  const viewFilter = VIEWS[currentView].filter;
 
   const filtered = links.filter((l) => {
     const matchesTag = !tag || l.link_tags.some((lt) => lt.tags.name === tag);
-    return matchesQuery(l, query) && matchesTag;
+    const matchesView = !viewFilter || viewFilter(l);
+    const matchesHomePill = currentView !== 'home' || !homeFilter || l.content_type === homeFilter;
+    return matchesQuery(l, query) && matchesTag && matchesView && matchesHomePill;
   });
 
   linkList.innerHTML = '';
@@ -301,6 +346,16 @@ function buildCard(link) {
 
 searchInput.addEventListener('input', () => renderLinks(allLinks));
 tagFilter.addEventListener('change', () => renderLinks(allLinks));
+
+homePills.addEventListener('click', (e) => {
+  const btn = e.target.closest('.filter-pill');
+  if (!btn) return;
+  homeFilter = btn.dataset.filter;
+  [...homePills.querySelectorAll('.filter-pill')].forEach((b) => {
+    b.classList.toggle('active', b === btn);
+  });
+  renderLinks(allLinks);
+});
 
 // --- Seletor de tipo ---
 

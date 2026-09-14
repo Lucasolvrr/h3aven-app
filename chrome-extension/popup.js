@@ -19,6 +19,7 @@ function detectContentType(url) {
     if (host.includes('youtube.com') || host.includes('youtu.be')) return 'youtube';
     if (host.includes('open.spotify.com')) return 'music';
     if ((host.includes('twitter.com') || host.includes('x.com')) && /\/status\//.test(url)) return 'tweet';
+    if (host.includes('instagram.com')) return 'instagram';
     if (host.includes('reddit.com')) return 'social';
     return 'link';
   } catch {
@@ -44,7 +45,7 @@ async function refreshAccessToken(refreshToken) {
   return { accessToken: data.access_token, userId: parseJwt(data.access_token).sub };
 }
 
-const NEEDS_ENRICHMENT = new Set(['link', 'social', 'youtube', 'music', 'tweet']);
+const NEEDS_ENRICHMENT = new Set(['link', 'social', 'youtube', 'music', 'tweet', 'instagram']);
 
 async function saveLink({ accessToken, userId, url, title, tagNames }) {
   const headers = {

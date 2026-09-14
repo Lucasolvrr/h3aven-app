@@ -64,3 +64,8 @@ alter table links
   add column if not exists external_id text;
 
 create index if not exists links_content_type_idx on links(content_type);
+
+-- Migração: adiciona o tipo "instagram" (roteador de views + filtro por tipo no Home)
+alter table links drop constraint if exists links_content_type_check;
+alter table links add constraint links_content_type_check
+  check (content_type in ('link','youtube','tweet','movie','tv','music','social','instagram'));
