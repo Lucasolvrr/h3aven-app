@@ -137,9 +137,37 @@ async function scrapeOg(url) {
   return meta;
 }
 
+function extractYoutubeId(url) {
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes('youtu.be')) return u.pathname.slice(1) || null;
+    const v = u.searchParams.get('v');
+    if (v) return v;
+    const match = u.pathname.match(/\/(embed|shorts)\/([^/?]+)/);
+    return match ? match[2] : null;
+  } catch {
+    return null;
+  }
+}
+
 async function enrichYoutube(url) {
   const data = await fetchOEmbed(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`);
-  return { title: data.title, image: data.thumbnail_url, author: data.author_name };
+  // oEmbed's thumbnail_url is the old 480x360 (4:3) hqdefault.jpg, which has
+  // black letterbox bars baked in for widescreen videos. hq720.jpg is a real
+  // 1280x720 crop with no bars — use it when available, falling back to
+  // oEmbed's thumbnail for the rare video that doesn't have it.
+  let image = data.thumbnail_url;
+  const videoId = extractYoutubeId(url);
+  if (videoId) {
+    const hq720 = `https://i.ytimg.com/vi/${videoId}/hq720.jpg`;
+    try {
+      const check = await withTimeout((signal) => fetch(hq720, { method: 'HEAD', signal }), 5000);
+      if (check.ok) image = hq720;
+    } catch {
+      // keep oEmbed's thumbnail_url
+    }
+  }
+  return { title: data.title, image, author: data.author_name };
 }
 
 async function enrichSpotify(url) {
