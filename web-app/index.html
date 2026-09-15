@@ -30,21 +30,29 @@
 </div>
 
 <div id="app-view" class="screen hidden">
-  <div class="top-fade"></div>
   <header class="app-header">
-    <div class="app-header-brand">
-      <img src="icons/favicon-32.png" alt="h3aven" />
-    </div>
-    <nav class="app-nav">
-      <a href="#/" class="nav-link" data-view="home">Home</a>
-      <a href="#/biblioteca" class="nav-link" data-view="biblioteca">Biblioteca</a>
-      <a href="#/colecoes" class="nav-link" data-view="colecoes">Coleções</a>
-    </nav>
-    <div class="header-actions">
-      <div class="create-wrap">
+    <div class="app-header-blur" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <div class="app-header-tint" aria-hidden="true"></div>
+    <div class="app-header-content">
+      <div class="app-header-left">
+        <div class="app-header-brand">
+          <img src="icons/favicon-48.png" alt="h3aven" />
+        </div>
+        <nav class="app-nav">
+          <a href="#/" class="nav-link" data-view="home">Home</a>
+          <a href="#/biblioteca" class="nav-link" data-view="biblioteca">Biblioteca</a>
+          <a href="#/colecoes" class="nav-link" data-view="colecoes">Coleções</a>
+        </nav>
+      </div>
+      <button type="button" id="header-search-btn" class="header-search-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <span>Buscar</span>
+      </button>
+      <div class="header-actions">
+        <div class="create-wrap">
         <button type="button" id="create-btn" class="create-btn">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
-          Criar
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          <span>Criar</span>
         </button>
         <div id="create-menu" class="create-menu hidden">
           <button type="button" class="create-menu-item" data-action="collection">
@@ -80,7 +88,10 @@
         </div>
       </div>
       <div class="avatar-wrap">
-        <button id="avatar-btn" class="avatar-btn" aria-label="Conta"></button>
+        <button id="avatar-btn" class="avatar-btn" aria-label="Conta">
+          <span id="avatar-initial" class="avatar-circle"></span>
+          <svg class="avatar-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
         <div id="avatar-menu" class="avatar-menu hidden">
           <span id="user-email" class="muted small"></span>
           <div class="avatar-menu-divider"></div>
@@ -104,6 +115,7 @@
           <div class="avatar-menu-divider"></div>
           <button id="logout-btn" class="avatar-menu-item">Sair</button>
         </div>
+      </div>
       </div>
     </div>
   </header>

@@ -23,7 +23,9 @@ const searchSuggestions = document.getElementById('search-suggestions');
 const hero = document.getElementById('hero');
 const heroGreeting = document.getElementById('hero-greeting');
 const avatarBtn = document.getElementById('avatar-btn');
+const avatarInitial = document.getElementById('avatar-initial');
 const avatarMenu = document.getElementById('avatar-menu');
+const headerSearchBtn = document.getElementById('header-search-btn');
 const avatarWrap = document.querySelector('.avatar-wrap');
 const themeToggle = document.getElementById('theme-toggle');
 const densityToggle = document.getElementById('density-toggle');
@@ -134,6 +136,11 @@ async function init() {
   initDensityToggle();
   initCollectionBackBtn();
 
+  headerSearchBtn.addEventListener('click', () => {
+    if (currentView !== 'home') location.hash = '#/';
+    setTimeout(() => searchInput.focus(), 0);
+  });
+
   const { data: { session } } = await supabase.auth.getSession();
   handleSession(session);
 
@@ -242,7 +249,7 @@ function handleSession(session) {
     loginView.classList.add('hidden');
     appView.classList.remove('hidden');
     userEmailEl.textContent = session.user.email;
-    avatarBtn.textContent = session.user.email[0].toUpperCase();
+    avatarInitial.textContent = session.user.email[0].toUpperCase();
     heroGreeting.textContent = greetingText();
     loadLinks();
     loadCollections();

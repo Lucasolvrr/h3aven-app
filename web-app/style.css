@@ -95,67 +95,121 @@ button.ghost {
 }
 button.small-btn { padding: 6px 10px; font-size: 13px; }
 
-/* Top fade — softens content scrolling in behind the floating header */
-.top-fade {
+/* Header — full-bleed bar pinned to the very top (Figma node 1500:2107).
+   It has no solid fill of its own: a progressive gradient tint (opaque near
+   the top edge, fully transparent by its own bottom edge) plus a
+   progressive blur — several stacked layers, each blurred by a different
+   amount and masked to a different band, since a single backdrop-filter
+   can't vary in strength across an element. The combined effect reads as
+   heavy frosted glass right under the nav, fading to fully clear glass by
+   the time the header meets the page content. */
+.app-main { padding-top: 128px; }
+.app-header {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  height: 140px;
-  background: linear-gradient(to bottom, var(--bg) 0%, rgba(16, 18, 22, 0.6) 45%, transparent 100%);
-  box-shadow: inset 0 40px 40px -40px rgba(0, 0, 0, 0.6);
-  pointer-events: none;
-  z-index: 55;
-}
-
-/* Header — floats fixed over the page (and over the hero video) instead of
-   pushing content down, so the video shows through behind/around it. */
-.app-main { padding-top: 96px; }
-.app-header {
-  position: fixed;
-  top: 32px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(100% - 48px);
-  max-width: 1352px;
+  height: 128px;
   z-index: 60;
+}
+.app-header-blur { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.app-header-blur i { position: absolute; inset: 0; display: block; font-style: normal; }
+.app-header-blur i:nth-child(1) {
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 70%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 70%);
+}
+.app-header-blur i:nth-child(2) {
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 30%, transparent 55%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 30%, transparent 55%);
+}
+.app-header-blur i:nth-child(3) {
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 16%, transparent 36%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 16%, transparent 36%);
+}
+.app-header-blur i:nth-child(4) {
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 8%, transparent 20%);
+  mask-image: linear-gradient(to bottom, #000 0%, #000 8%, transparent 20%);
+}
+.app-header-tint {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(16, 18, 22, 0.8) 0%, rgba(16, 18, 22, 0) 92%);
+  pointer-events: none;
+}
+.app-header-content {
+  position: relative;
+  z-index: 1;
+  height: 100%;
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 24px;
-  padding: 10px 16px;
-  background: rgba(21, 21, 21, 0.55);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-pill);
+  padding: 0 64px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
+.app-header-content::-webkit-scrollbar { display: none; }
+.app-header-left { display: flex; align-items: center; gap: 64px; flex-shrink: 0; }
 .app-header-brand { display: flex; align-items: center; flex-shrink: 0; }
-.app-header-brand img { width: 28px; height: 28px; border-radius: 8px; display: block; }
+.app-header-brand img { width: 48px; height: 48px; border-radius: 14px; display: block; }
 
-.app-nav { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.app-nav { display: flex; align-items: center; gap: 32px; flex-shrink: 0; }
 .nav-link {
-  padding: 8px 14px;
-  border-radius: var(--radius-pill);
-  color: var(--muted);
+  padding: 4px 0;
+  color: rgba(255, 255, 255, 0.75);
   text-decoration: none;
-  font-size: 14px;
+  font-size: 16px;
   white-space: nowrap;
 }
 .nav-link:hover { color: var(--ink); }
-.nav-link.active { background: var(--surface-2); color: var(--ink); }
+.nav-link.active { color: var(--ink); font-weight: 500; }
 
-.header-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+/* Compact search trigger, centered in the header (separate from the big
+   hero search input on Home) */
+.header-search-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 590px;
+  max-width: 38vw;
+  height: 56px;
+  padding: 0 24px;
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(46px);
+  -webkit-backdrop-filter: blur(46px);
+  border-radius: 9999px;
+  color: var(--text-secondary);
+  font-size: 16px;
+  font-weight: 500;
+  justify-content: flex-start;
+}
+.header-search-btn:hover { opacity: 1; background: rgba(0, 0, 0, 0.08); }
+.header-search-btn svg { flex-shrink: 0; }
+
+.header-actions { display: flex; align-items: center; gap: 24px; flex-shrink: 0; }
 
 /* Botão "Criar" */
 .create-wrap { position: relative; }
 .create-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  height: 56px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--ink);
-  padding: 8px 16px 8px 12px;
+  color: var(--text-secondary);
+  padding: 0 24px;
+  font-size: 16px;
+  font-weight: 500;
 }
 .create-btn:hover { opacity: 1; background: rgba(255, 255, 255, 0.14); }
 .create-menu {
@@ -288,15 +342,29 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
 
 .avatar-wrap { position: relative; flex-shrink: 0; }
 .avatar-btn {
-  width: 34px;
-  height: 34px;
-  padding: 0;
-  border-radius: var(--radius-pill);
-  background: linear-gradient(135deg, #91a7ff, #7e5bff);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 56px;
+  padding: 8px 24px 8px 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 9999px;
+}
+.avatar-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 9999px;
+  background: linear-gradient(180deg, #91a7ff, #7e5bff);
   color: var(--ink);
   font-size: 14px;
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
+.avatar-chevron { color: var(--text-secondary); flex-shrink: 0; }
 .avatar-menu {
   position: absolute;
   top: calc(100% + 8px);
@@ -350,7 +418,7 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
   position: relative;
   width: 100vw;
   margin-left: calc(-50vw + 50%);
-  margin-top: -96px;
+  margin-top: -128px;
   aspect-ratio: 1920 / 620;
   min-height: 820px;
   overflow: hidden;
@@ -997,9 +1065,21 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
 /* Mobile */
 @media (max-width: 720px) {
   #app-view.screen { padding: 0 16px 80px; }
-  .app-main { padding-top: 150px; }
-  .hero { margin-top: -150px; aspect-ratio: 1 / 1.3; min-height: 560px; }
-  .app-header { flex-wrap: wrap; gap: 12px; padding: 12px 16px; }
+  .app-main { padding-top: 88px; }
+  .app-header { height: 88px; }
+  .hero { margin-top: -88px; aspect-ratio: 1 / 1.3; min-height: 560px; }
+  .app-header-content { padding: 0 12px; gap: 8px; }
+  .app-header-left { gap: 12px; }
+  .app-nav { gap: 8px; }
+  .nav-link { font-size: 12px; }
+  .app-header-brand img { width: 32px; height: 32px; border-radius: 9px; }
+  .header-search-btn { display: none; }
+  .header-actions { gap: 6px; }
+  .create-btn { height: 36px; padding: 0 10px; font-size: 12px; gap: 5px; }
+  .create-btn svg { width: 14px; height: 14px; }
+  .avatar-btn { height: 36px; padding: 3px 6px 3px 3px; gap: 4px; }
+  .avatar-circle { width: 30px; height: 30px; font-size: 12px; }
+  .avatar-chevron { display: none; }
   .hero-content { gap: 32px; padding: 130px 20px 48px; }
   .hero-greeting { font-size: 32px; }
   .hero-search-bar { height: auto; padding: 8px 8px 8px 20px; }
