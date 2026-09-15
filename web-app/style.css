@@ -153,10 +153,7 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
   justify-content: space-between;
   gap: 24px;
   padding: 0 64px;
-  overflow-x: auto;
-  scrollbar-width: none;
 }
-.app-header-content::-webkit-scrollbar { display: none; }
 .app-header-left { display: flex; align-items: center; gap: 64px; flex-shrink: 0; }
 .app-header-brand { display: flex; align-items: center; flex-shrink: 0; }
 .app-header-brand img { width: 48px; height: 48px; border-radius: 14px; display: block; }
@@ -268,7 +265,7 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
   width: 100%;
   max-width: 839px;
   height: 72px;
-  background: #1c1f26;
+  background: #2c2f3a;
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 9999px;
   padding: 16px 16px 16px 32px;
@@ -459,11 +456,11 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
-.hero-pills { gap: 8px; margin-bottom: 0; justify-content: center; max-width: 839px; }
+.hero-pills { gap: 8px; margin-bottom: 0; justify-content: center; max-width: 654px; }
 .hero-pills .filter-pill {
-  height: 48px;
-  padding: 0 32px;
-  background: linear-gradient(to bottom, #1c1f26, #191a1d);
+  height: 40px;
+  padding: 0 24px;
+  background: #323644;
   border-color: rgba(255, 255, 255, 0.05);
   color: #c3c3c3;
   font-family: 'Satoshi', 'Inter', system-ui, sans-serif;
@@ -471,7 +468,8 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
 }
 .hero-pills .filter-pill.active {
   font-weight: 700;
-  border-color: rgba(255, 255, 255, 0.5);
+  color: #fff;
+  border-color: #ccccff;
 }
 
 #search-input { flex: 1; }
