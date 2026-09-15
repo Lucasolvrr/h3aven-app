@@ -55,6 +55,15 @@ const quickviewNotes = document.getElementById('quickview-notes');
 const quickviewCopyBtn = document.getElementById('quickview-copy-btn');
 const quickviewDeleteBtn = document.getElementById('quickview-delete-btn');
 
+const extPromoToast = document.getElementById('ext-promo-toast');
+const extPromoClose = document.getElementById('ext-promo-close');
+const extPromoBtn = document.getElementById('ext-promo-btn');
+const progressToast = document.getElementById('progress-toast');
+const progressClose = document.getElementById('progress-close');
+const progressCountCurrent = document.getElementById('progress-count-current');
+const progressBar = document.getElementById('progress-bar');
+const PROGRESS_GOAL = 5;
+
 let currentSession = null;
 let allLinks = [];
 let selectedType = 'link';
@@ -105,6 +114,7 @@ async function init() {
   document.addEventListener('click', (e) => {
     if (!avatarWrap.contains(e.target)) avatarMenu.classList.add('hidden');
   });
+  initScrollBlur();
 
   const { data: { session } } = await supabase.auth.getSession();
   handleSession(session);
@@ -114,6 +124,28 @@ async function init() {
   });
 
   window.addEventListener('hashchange', renderRoute);
+}
+
+function initScrollBlur() {
+  let lastY = window.scrollY;
+  let resetTimer;
+  window.addEventListener(
+    'scroll',
+    () => {
+      const y = window.scrollY;
+      const delta = Math.abs(y - lastY);
+      lastY = y;
+      const blur = Math.min(delta * 0.4, 6);
+      linkList.style.transition = 'none';
+      linkList.style.filter = `blur(${blur}px)`;
+      clearTimeout(resetTimer);
+      resetTimer = setTimeout(() => {
+        linkList.style.transition = 'filter 250ms ease-out';
+        linkList.style.filter = 'blur(0px)';
+      }, 100);
+    },
+    { passive: true }
+  );
 }
 
 function greetingText() {
@@ -200,7 +232,45 @@ async function loadLinks() {
   allLinks = data;
   populateTagFilter(data);
   renderRoute();
+  updateOnboardingToasts();
 }
+
+function updateOnboardingToasts() {
+  const count = Math.min(allLinks.length, PROGRESS_GOAL);
+
+  if (localStorage.getItem('h3aven-ext-promo-dismissed') !== 'true') {
+    extPromoToast.classList.remove('hidden');
+  }
+
+  if (allLinks.length < PROGRESS_GOAL && localStorage.getItem('h3aven-progress-dismissed') !== 'true') {
+    progressCountCurrent.textContent = count;
+    progressBar.innerHTML = '';
+    for (let i = 0; i < PROGRESS_GOAL; i++) {
+      const segment = document.createElement('span');
+      if (i < count) segment.classList.add('filled');
+      progressBar.appendChild(segment);
+    }
+    progressToast.classList.remove('hidden');
+  } else {
+    progressToast.classList.add('hidden');
+  }
+}
+
+extPromoClose.addEventListener('click', () => {
+  extPromoToast.classList.add('hidden');
+  localStorage.setItem('h3aven-ext-promo-dismissed', 'true');
+});
+
+extPromoBtn.addEventListener('click', () => {
+  const syncDetails = document.querySelector('.sync-panel details');
+  syncDetails.open = true;
+  syncDetails.scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+
+progressClose.addEventListener('click', () => {
+  progressToast.classList.add('hidden');
+  localStorage.setItem('h3aven-progress-dismissed', 'true');
+});
 
 function populateTagFilter(links) {
   const tagNames = new Set();
