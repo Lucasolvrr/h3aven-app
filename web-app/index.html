@@ -37,14 +37,73 @@
     </div>
     <nav class="app-nav">
       <a href="#/" class="nav-link" data-view="home">Home</a>
-      <a href="#/filmes" class="nav-link" data-view="filmes">Filmes &amp; Séries</a>
-      <a href="#/musica" class="nav-link" data-view="musica">Música</a>
+      <a href="#/biblioteca" class="nav-link" data-view="biblioteca">Biblioteca</a>
+      <a href="#/colecoes" class="nav-link" data-view="colecoes">Coleções</a>
     </nav>
-    <div class="avatar-wrap">
-      <button id="avatar-btn" class="avatar-btn" aria-label="Conta"></button>
-      <div id="avatar-menu" class="avatar-menu hidden">
-        <span id="user-email" class="muted small"></span>
-        <button id="logout-btn" class="ghost small-btn">Sair</button>
+    <div class="header-actions">
+      <div class="create-wrap">
+        <button type="button" id="create-btn" class="create-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          Criar
+        </button>
+        <div id="create-menu" class="create-menu hidden">
+          <button type="button" class="create-menu-item" data-action="collection">
+            <span class="create-menu-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            </span>
+            <span class="create-menu-text"><strong>Nova coleção</strong><small>Organize conteúdos por contexto</small></span>
+          </button>
+          <button type="button" class="create-menu-item" data-action="media">
+            <span class="create-menu-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M8 5v4M16 5v4"/></svg>
+            </span>
+            <span class="create-menu-text"><strong>Filme ou série</strong><small>Buscar e adicionar à biblioteca</small></span>
+          </button>
+          <button type="button" class="create-menu-item" data-action="music">
+            <span class="create-menu-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>
+            </span>
+            <span class="create-menu-text"><strong>Música</strong><small>Colar um link do Spotify</small></span>
+          </button>
+          <button type="button" class="create-menu-item" data-action="import">
+            <span class="create-menu-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+            </span>
+            <span class="create-menu-text"><strong>Importar lista</strong><small>Colar links e tags de uma planilha</small></span>
+          </button>
+          <button type="button" class="create-menu-item" data-action="extension">
+            <span class="create-menu-icon">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6M5.6 8.5l5.2 3M18.4 8.5l-5.2 3"/></svg>
+            </span>
+            <span class="create-menu-text"><strong>Extensão do Chrome</strong><small>Salvar links de qualquer lugar</small></span>
+          </button>
+        </div>
+      </div>
+      <div class="avatar-wrap">
+        <button id="avatar-btn" class="avatar-btn" aria-label="Conta"></button>
+        <div id="avatar-menu" class="avatar-menu hidden">
+          <span id="user-email" class="muted small"></span>
+          <div class="avatar-menu-divider"></div>
+          <button type="button" class="avatar-menu-item" disabled>Configurações</button>
+          <div class="avatar-menu-row">
+            <span class="small muted">Tema</span>
+            <div class="segmented" id="theme-toggle">
+              <button type="button" data-theme="light" aria-label="Claro">☀</button>
+              <button type="button" data-theme="dark" class="active" aria-label="Escuro">☾</button>
+              <button type="button" data-theme="auto" aria-label="Automático">◐</button>
+            </div>
+          </div>
+          <div class="avatar-menu-row">
+            <span class="small muted">Densidade</span>
+            <div class="segmented" id="density-toggle">
+              <button type="button" data-density="compact">▤</button>
+              <button type="button" data-density="medium" class="active">▦</button>
+              <button type="button" data-density="wide">▥</button>
+            </div>
+          </div>
+          <div class="avatar-menu-divider"></div>
+          <button id="logout-btn" class="avatar-menu-item">Sair</button>
+        </div>
       </div>
     </div>
   </header>
@@ -58,7 +117,7 @@
       <div class="hero-content">
         <p id="hero-greeting" class="hero-greeting"></p>
         <form class="hero-search-bar" id="hero-search-form">
-          <input type="search" id="search-input" placeholder="Faça sua busca" autocomplete="off" />
+          <input type="search" id="search-input" placeholder="Buscar item salvo" autocomplete="off" />
           <button type="submit">Buscar</button>
           <div id="search-suggestions" class="search-suggestions hidden"></div>
         </form>
@@ -75,57 +134,12 @@
       </div>
     </section>
 
-    <section class="toolbar">
-      <select id="tag-filter">
-        <option value="">Todas as tags</option>
-      </select>
-    </section>
+    <div id="collections-grid" class="collections-grid hidden"></div>
 
-    <section class="add-link">
-      <details>
-        <summary>Adicionar item</summary>
-
-        <div class="type-picker" id="type-picker">
-          <button type="button" class="type-pill active" data-type="link">Link</button>
-          <button type="button" class="type-pill" data-type="youtube">YouTube</button>
-          <button type="button" class="type-pill" data-type="tweet">Tweet</button>
-          <button type="button" class="type-pill" data-type="instagram">Instagram</button>
-          <button type="button" class="type-pill" data-type="movie">Filme</button>
-          <button type="button" class="type-pill" data-type="tv">Série</button>
-          <button type="button" class="type-pill" data-type="music">Música</button>
-          <button type="button" class="type-pill" data-type="social">Social</button>
-        </div>
-
-        <form id="add-form">
-          <input type="url" id="add-url" placeholder="https://..." required />
-          <input type="text" id="add-title" placeholder="Título (opcional)" />
-          <input type="text" id="add-tags" placeholder="tags separadas por vírgula" />
-          <button type="submit">Salvar</button>
-        </form>
-
-        <div id="media-search" class="media-search hidden">
-          <div class="media-search-row">
-            <input type="text" id="media-search-input" placeholder="Buscar filme ou série..." />
-            <input type="text" id="media-tags" placeholder="tags separadas por vírgula" />
-            <button type="button" id="media-search-btn">Buscar</button>
-          </div>
-          <p id="media-status" class="muted small"></p>
-          <div id="media-results" class="media-results"></div>
-        </div>
-      </details>
-    </section>
-
-    <section class="sync-panel">
-      <details>
-        <summary>Conectar a extensão do Chrome</summary>
-        <p class="muted small">Cole este token na tela de opções da extensão, uma única vez.</p>
-        <div class="token-row">
-          <code id="sync-token">••••••••••••••••</code>
-          <button id="reveal-token-btn" class="ghost small-btn">Mostrar</button>
-          <button id="copy-token-btn" class="ghost small-btn">Copiar</button>
-        </div>
-      </details>
-    </section>
+    <div id="collection-back-bar" class="collection-back-bar hidden">
+      <button type="button" id="collection-back-btn" class="ghost small-btn">← Coleções</button>
+      <h2 id="collection-view-title"></h2>
+    </div>
 
     <ul id="link-list" class="library-grid layout-masonry"></ul>
     <p id="empty-state" class="muted hidden">Nenhum item salvo ainda.</p>
@@ -156,6 +170,23 @@
       <p class="progress-count"><span id="progress-count-current">0</span> de <span id="progress-count-goal">5</span> salvos</p>
       <div class="progress-bar" id="progress-bar"></div>
     </div>
+  </div>
+</div>
+
+<div id="create-modal-overlay" class="quickview-overlay hidden">
+  <div class="create-modal" role="dialog" aria-modal="true">
+    <button type="button" id="create-modal-close" class="quickview-close" aria-label="Fechar">&times;</button>
+    <div id="create-modal-body"></div>
+  </div>
+</div>
+
+<div id="collection-picker-overlay" class="collection-picker-overlay hidden">
+  <div class="collection-picker" role="dialog" aria-modal="true">
+    <div id="collection-picker-list" class="collection-picker-list"></div>
+    <form id="collection-picker-new-form" class="collection-picker-new-form">
+      <input type="text" id="collection-picker-new-input" placeholder="Nova coleção..." autocomplete="off" />
+      <button type="submit" class="small-btn">Criar</button>
+    </form>
   </div>
 </div>
 
