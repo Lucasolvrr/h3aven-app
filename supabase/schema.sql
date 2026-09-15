@@ -72,3 +72,34 @@ alter table links add constraint links_content_type_check
 
 -- Migração: notas pessoais por item (usadas no modal de quickview)
 alter table links add column if not exists notes text;
+
+-- Migração: Coleções — agrupamento manual, ortogonal a tags (não remove o
+-- item de onde ele já está, só cria mais um jeito de organizá-lo)
+create table if not exists collections (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid(),
+  name text not null,
+  created_at timestamptz not null default now(),
+  unique (user_id, name)
+);
+
+create table if not exists collection_links (
+  collection_id uuid not null references collections(id) on delete cascade,
+  link_id uuid not null references links(id) on delete cascade,
+  primary key (collection_id, link_id)
+);
+
+alter table collections enable row level security;
+alter table collection_links enable row level security;
+
+create policy "collections: only owner" on collections
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "collection_links: only owner" on collection_links
+  for all using (
+    exists (select 1 from collections where collections.id = collection_links.collection_id and collections.user_id = auth.uid())
+  ) with check (
+    exists (select 1 from collections where collections.id = collection_links.collection_id and collections.user_id = auth.uid())
+  );
+
+create index if not exists collections_user_id_idx on collections(user_id);
