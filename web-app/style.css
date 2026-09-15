@@ -20,7 +20,7 @@
   --accent: #1500ff;
   --accent-ink: #fdfdfd;
   --danger: #f2685c;
-  --radius-pill: 16px;
+  --radius-pill: 9999px;
   --radius-panel: 16px;
   --radius-tiles: 12px;
   --radius: var(--radius-panel);
@@ -141,7 +141,9 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
 .app-header-tint {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, rgba(28, 31, 38, 0.8) 0%, rgba(28, 31, 38, 0) 92%);
+  /* Never fades all the way to 0 — a thin 8% floor keeps the header legible
+     over busy thumbnails once content scrolls up underneath it. */
+  background: linear-gradient(to bottom, rgba(28, 31, 38, 0.8) 0%, rgba(28, 31, 38, 0.08) 92%);
   pointer-events: none;
 }
 .app-header-content {
@@ -542,47 +544,66 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
   border-color: var(--surface-2);
 }
 
-/* Movie/TV search */
-.media-search { margin-top: 12px; }
-.media-search-row { display: flex; gap: 8px; flex-wrap: wrap; }
-.media-search-row input {
-  padding: 8px 10px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
-  font-family: inherit;
-  font-size: 14px;
-  background: var(--surface-1);
-  color: var(--ink);
-  flex: 1;
-  min-width: 140px;
+/* Movie/TV search — unified, borderless search field + a grid of larger
+   poster cards with the title overlaid via a bottom scrim */
+.media-search-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 4px 16px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 16px;
+  color: var(--muted);
 }
+.media-search-input-wrap input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  color: var(--ink);
+  font-size: 16px;
+  font-family: inherit;
+  padding: 0;
+}
+.media-search-input-wrap input:focus { outline: none; }
 .media-results {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
   margin-top: 12px;
 }
 .media-result {
+  position: relative;
   cursor: pointer;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-panel);
+  border: none;
+  border-radius: var(--radius-tiles);
   overflow: hidden;
-  background: var(--surface-1);
+  background: var(--surface-2);
   text-align: left;
   padding: 0;
   color: var(--ink);
   font-family: inherit;
+  aspect-ratio: 2 / 3;
 }
 .media-result img {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  aspect-ratio: 2 / 3;
+  height: 100%;
   object-fit: cover;
   display: block;
   background: var(--surface-2);
 }
-.media-result .media-result-info { padding: 6px 8px; }
-.media-result .media-result-title { font-size: 12px; font-weight: 500; line-height: 1.3; }
-.media-result .media-result-year { font-size: 11px; color: var(--muted); }
+.media-result .media-result-info {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 20px 10px 10px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0) 85%);
+}
+.media-result .media-result-title { font-size: 13px; font-weight: 600; line-height: 1.3; color: #fff; }
+.media-result .media-result-year { font-size: 11px; color: rgba(255, 255, 255, 0.7); }
 
 .token-row {
   display: flex;
@@ -894,6 +915,14 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
   overflow-y: auto;
   padding: 24px;
   position: relative;
+}
+.create-modal--media { max-width: 720px; }
+/* Media search sits over a heavier-blurred backdrop than the other Criar
+   modals, so the busy poster grid reads clearly against it */
+#create-modal-overlay.overlay--intense-blur {
+  background: rgba(16, 18, 22, 0.4);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
 }
 .create-modal h2 { font-size: 18px; font-weight: 500; margin: 0 0 16px; font-family: var(--font-display); }
 .cm-form { display: flex; flex-direction: column; gap: 10px; }

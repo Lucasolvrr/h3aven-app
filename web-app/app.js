@@ -890,11 +890,14 @@ async function deleteLink(id) {
 function openCreateModal(kind) {
   createModalBody.innerHTML = CREATE_MODAL_TEMPLATES[kind]();
   CREATE_MODAL_INIT[kind]();
+  createModalOverlay.querySelector('.create-modal').classList.toggle('create-modal--media', kind === 'media');
+  createModalOverlay.classList.toggle('overlay--intense-blur', kind === 'media');
   createModalOverlay.classList.remove('hidden');
 }
 
 function closeCreateModal() {
   createModalOverlay.classList.add('hidden');
+  createModalOverlay.classList.remove('overlay--intense-blur');
   createModalBody.innerHTML = '';
 }
 
@@ -914,14 +917,9 @@ const CREATE_MODAL_TEMPLATES = {
   `,
   media: () => `
     <h2>Filme ou série</h2>
-    <div class="type-picker" id="cm-media-type">
-      <button type="button" class="type-pill active" data-type="movie">Filme</button>
-      <button type="button" class="type-pill" data-type="tv">Série</button>
-    </div>
-    <div class="media-search-row">
+    <div class="media-search-input-wrap">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
       <input type="text" id="cm-media-search-input" placeholder="Buscar por título..." autocomplete="off" />
-      <input type="text" id="cm-media-tags" placeholder="tags separadas por vírgula" autocomplete="off" />
-      <button type="button" id="cm-media-search-btn">Buscar</button>
     </div>
     <p id="cm-media-status" class="muted small"></p>
     <div id="cm-media-results" class="media-results"></div>
@@ -974,45 +972,44 @@ const CREATE_MODAL_INIT = {
     });
   },
   media: () => {
-    let mediaType = 'movie';
-    const typePicker = document.getElementById('cm-media-type');
     const searchInputEl = document.getElementById('cm-media-search-input');
-    const tagsInputEl = document.getElementById('cm-media-tags');
-    const searchBtn = document.getElementById('cm-media-search-btn');
     const statusEl = document.getElementById('cm-media-status');
     const resultsEl = document.getElementById('cm-media-results');
-
-    typePicker.addEventListener('click', (e) => {
-      const btn = e.target.closest('.type-pill');
-      if (!btn) return;
-      mediaType = btn.dataset.type;
-      [...typePicker.querySelectorAll('.type-pill')].forEach((b) => b.classList.toggle('active', b === btn));
-    });
+    let debounceTimer;
 
     async function runSearch() {
       const query = searchInputEl.value.trim();
-      if (!query) return;
+      if (!query) {
+        statusEl.textContent = '';
+        resultsEl.innerHTML = '';
+        return;
+      }
       statusEl.textContent = 'Buscando...';
-      resultsEl.innerHTML = '';
       const { data, error } = await supabase.functions.invoke('fetch-metadata', {
-        body: { action: 'search', query, mediaType },
+        body: { action: 'search', query },
       });
       if (error) {
         statusEl.textContent = `Erro na busca: ${error.message}`;
         return;
       }
       const results = data?.results || [];
+      resultsEl.innerHTML = '';
       statusEl.textContent = results.length ? '' : 'Nada encontrado.';
-      results.forEach((r) => resultsEl.appendChild(buildMediaResult(r, tagsInputEl, statusEl)));
+      results.forEach((r) => resultsEl.appendChild(buildMediaResult(r, statusEl)));
     }
 
-    searchBtn.addEventListener('click', runSearch);
+    searchInputEl.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(runSearch, 350);
+    });
     searchInputEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
+        clearTimeout(debounceTimer);
         runSearch();
       }
     });
+    searchInputEl.focus();
   },
   music: () => {
     const form = document.getElementById('cm-music-form');
@@ -1087,7 +1084,7 @@ const CREATE_MODAL_INIT = {
   },
 };
 
-function buildMediaResult(result, tagsInputEl, statusEl) {
+function buildMediaResult(result, statusEl) {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className = 'media-result';
@@ -1112,35 +1109,28 @@ function buildMediaResult(result, tagsInputEl, statusEl) {
   info.append(title, year);
   btn.appendChild(info);
 
-  btn.addEventListener('click', () => saveMediaResult(result, tagsInputEl, statusEl));
+  btn.addEventListener('click', () => saveMediaResult(result, statusEl));
   return btn;
 }
 
-async function saveMediaResult(result, tagsInputEl, statusEl) {
-  const tagsRaw = tagsInputEl.value.trim();
-  const tagNames = tagsRaw ? tagsRaw.split(',').map((t) => t.trim().replace(/^#/, '')).filter(Boolean) : [];
-
+async function saveMediaResult(result, statusEl) {
   const mediaType = result.mediaType === 'tv' ? 'tv' : 'movie';
   const url = `https://www.themoviedb.org/${mediaType}/${result.id}`;
 
-  const { data: linkRow, error } = await supabase
-    .from('links')
-    .insert({
-      url,
+  const { error } = await supabase.from('links').insert({
+    url,
+    title: result.title,
+    source: 'tmdb',
+    content_type: mediaType,
+    external_id: `tmdb:${mediaType}:${result.id}`,
+    fetch_status: 'ready',
+    metadata: {
       title: result.title,
-      source: 'tmdb',
-      content_type: mediaType,
-      external_id: `tmdb:${mediaType}:${result.id}`,
-      fetch_status: 'ready',
-      metadata: {
-        title: result.title,
-        year: result.year,
-        posterPath: result.posterPath,
-        overview: result.overview,
-      },
-    })
-    .select()
-    .single();
+      year: result.year,
+      posterPath: result.posterPath,
+      overview: result.overview,
+    },
+  });
 
   if (error) {
     console.error(error);
@@ -1148,7 +1138,6 @@ async function saveMediaResult(result, tagsInputEl, statusEl) {
     return;
   }
 
-  await attachTags(linkRow.id, tagNames);
   statusEl.textContent = 'Salvo!';
   loadLinks();
   setTimeout(closeCreateModal, 700);
