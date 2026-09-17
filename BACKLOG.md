@@ -20,3 +20,14 @@ Ideias futuras para o h3aven — não estão em desenvolvimento agora.
 - Fluxo de crop/edição simples (provavelmente canvas no client antes do upload).
 - Novo `content_type` (ex: `screenshot`) + schema para categorias/tags do print.
 - Onde entra o botão de "colar print" no fluxo de adicionar item existente.
+
+## Outras ideias (2026-09-17)
+
+- **Livros na biblioteca** — novo `content_type` pra livros. [ClickUp](https://app.clickup.com/t/86e3a6y4c)
+- **Melhorar tela de criação de conta** — hoje é só o magic link. [ClickUp](https://app.clickup.com/t/86e3a6y4h)
+- **Música/álbum por nome, sem colar link** — busca por nome via API do Spotify, igual ao fluxo de Filme ou série via TMDB. [ClickUp](https://app.clickup.com/t/86e3a6y4m)
+- **Abas por categoria dentro de Biblioteca** — Filmes/Séries/Músicas/Livros etc, em vez de tudo misturado. [ClickUp](https://app.clickup.com/t/86e3a6y4p)
+- **Importar lista deve aceitar arquivo de favoritos exportado do navegador** — não só a planilha colada (URL + tags). [ClickUp](https://app.clickup.com/t/86e3a6y4u)
+- **Atualizar layout da extensão do Chrome** — ficou defasada em relação ao redesign recente do app web. [ClickUp](https://app.clickup.com/t/86e3a6y4z)
+- **Melhorar layout do fluxo de Coleções** — página de Coleções + popover de salvar-em-coleção ainda não receberam um passe de design dedicado. [ClickUp](https://app.clickup.com/t/86e3a6y52)
+- **Trocar ícone placeholder pela logo do h3aven no toast de instalação da extensão** — o header já usa a logo correta, falta aplicar o mesmo no ícone do toast "Salve no h3aven". [ClickUp](https://app.clickup.com/t/86e3a6y55)
