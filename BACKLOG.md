@@ -31,3 +31,17 @@ Ideias futuras para o h3aven — não estão em desenvolvimento agora.
 - **Atualizar layout da extensão do Chrome** — ficou defasada em relação ao redesign recente do app web. [ClickUp](https://app.clickup.com/t/86e3a6y4z)
 - **Melhorar layout do fluxo de Coleções** — página de Coleções + popover de salvar-em-coleção ainda não receberam um passe de design dedicado. [ClickUp](https://app.clickup.com/t/86e3a6y52)
 - **Trocar ícone placeholder pela logo do h3aven no toast de instalação da extensão** — o header já usa a logo correta, falta aplicar o mesmo no ícone do toast "Salve no h3aven". [ClickUp](https://app.clickup.com/t/86e3a6y55)
+
+## Repensar fluxo de "Adicionar": busca unificada tipo Spotlight/Raycast
+
+**Status:** ideia em design pelo Lucas — não implementar ainda. [ClickUp](https://app.clickup.com/t/86e3a71gu) (tag `design`)
+
+**Ideia:** trocar o dropdown atual do "Criar" (5 ações discretas, cada uma com seu modal) por um popup único estilo Spotlight/Raycast — digita livremente um filme/série/livro e vê resultados ao vivo, com opção de criar lista/importar favoritos no mesmo lugar.
+
+**Recomendação de escopo discutida:**
+- Só Filme/Série, Música e (futuro) Livro fazem sentido num campo de busca ao vivo — "Importar lista" (multi-linha) e "Extensão do Chrome" (informativo) devem continuar como linhas fixas/pinned abaixo da busca, não texto livre interpretado.
+- Desambiguação por tipo é simples na prática: cada API só retorna seu próprio tipo, então basta rodar as buscas em paralelo e marcar cada resultado com um badge de categoria.
+
+**⚠️ Complexidade/custo:** busca unificada = até 3 chamadas de API em paralelo por keystroke (TMDB + Spotify + Livros) com debounce — bem mais chamadas do que o fluxo atual de uma busca explícita por vez. Maior risco técnico da ideia.
+
+**Em aberto:** o que fazer quando o texto digitado não dá match em nenhuma API e a pessoa aperta Enter (nada / criar coleção com esse nome / ignorar).
