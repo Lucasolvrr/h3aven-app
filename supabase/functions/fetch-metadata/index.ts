@@ -5,7 +5,9 @@
 // and parsed server-side.
 //
 // Actions:
-//   { action: 'search', query, mediaType } -> TMDB search results (no DB write)
+//   { action: 'search', query, category } -> external search results, no DB
+//     write. category is 'filmes'/'series' (TMDB) or 'musicas' (Spotify) —
+//     the unified search overlay locks to one category per search.
 //   { action: 'enrich', linkId, url, contentType } -> fetches metadata for an
 //     existing link row and updates it (youtube/music/tweet/social/link)
 //
@@ -22,6 +24,8 @@ const CORS_HEADERS = {
 
 const TMDB_API_KEY = (Deno.env.get('TMDB_API_KEY') || '').trim();
 const TMDB_BASE = 'https://api.themoviedb.org/3';
+const SPOTIFY_CLIENT_ID = (Deno.env.get('SPOTIFY_CLIENT_ID') || '').trim();
+const SPOTIFY_CLIENT_SECRET = (Deno.env.get('SPOTIFY_CLIENT_SECRET') || '').trim();
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -223,6 +227,60 @@ async function tmdbSearch(query, mediaType) {
     }));
 }
 
+// Client Credentials flow — só permite busca, sem acesso a dados de usuário,
+// então o par client_id/secret pode ficar só como secret da function (mesmo
+// padrão do TMDB_API_KEY, nunca no client).
+let spotifyTokenCache = null;
+
+async function getSpotifyToken() {
+  if (spotifyTokenCache && spotifyTokenCache.expiresAt > Date.now()) return spotifyTokenCache.token;
+  if (!SPOTIFY_CLIENT_ID || !SPOTIFY_CLIENT_SECRET) throw new Error('SPOTIFY_CLIENT_ID/SPOTIFY_CLIENT_SECRET not configured');
+  const basic = btoa(`${SPOTIFY_CLIENT_ID}:${SPOTIFY_CLIENT_SECRET}`);
+  const res = await withTimeout((signal) =>
+    fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: { Authorization: `Basic ${basic}`, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'grant_type=client_credentials',
+      signal,
+    })
+  );
+  if (!res.ok) throw new Error(`Spotify auth failed: ${res.status}`);
+  const data = await res.json();
+  spotifyTokenCache = { token: data.access_token, expiresAt: Date.now() + (data.expires_in - 60) * 1000 };
+  return spotifyTokenCache.token;
+}
+
+async function spotifySearch(query) {
+  const token = await getSpotifyToken();
+  const res = await withTimeout((signal) =>
+    fetch(`https://api.spotify.com/v1/search?type=track&limit=12&q=${encodeURIComponent(query)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal,
+    })
+  );
+  if (!res.ok) throw new Error(`Spotify search failed: ${res.status}`);
+  const data = await res.json();
+  return (data.tracks?.items || []).map((t) => ({
+    id: t.id,
+    mediaType: 'music',
+    title: t.name,
+    year: (t.album?.release_date || '').slice(0, 4),
+    artist: (t.artists || []).map((a) => a.name).join(', '),
+    image: t.album?.images?.[1]?.url || t.album?.images?.[0]?.url || null,
+    url: t.external_urls?.spotify || null,
+  }));
+}
+
+// Ponto único de despacho da busca unificada — cada categoria trava numa
+// única fonte externa (economiza requisições e mantém os resultados
+// coerentes por tipo).
+async function performSearch(category, query) {
+  if (category === 'filmes') return tmdbSearch(query, 'movie');
+  if (category === 'series') return tmdbSearch(query, 'tv');
+  if (category === 'musicas') return spotifySearch(query);
+  throw new Error(`Categoria de busca desconhecida: ${category}`);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
 
@@ -237,7 +295,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
 
     if (body.action === 'search') {
-      const results = await tmdbSearch(body.query, body.mediaType);
+      const results = await performSearch(body.category, body.query);
       return json({ results });
     }
 

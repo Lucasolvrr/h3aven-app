@@ -69,23 +69,11 @@
             </span>
             <span class="create-menu-text"><strong>Nova coleção</strong><small>Organize conteúdos por contexto</small></span>
           </button>
-          <button type="button" class="create-menu-item" data-action="media">
-            <span class="create-menu-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 9h18M8 5v4M16 5v4"/></svg>
-            </span>
-            <span class="create-menu-text"><strong>Filme ou série</strong><small>Buscar e adicionar à biblioteca</small></span>
-          </button>
-          <button type="button" class="create-menu-item" data-action="music">
-            <span class="create-menu-icon">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></svg>
-            </span>
-            <span class="create-menu-text"><strong>Música</strong><small>Colar um link do Spotify</small></span>
-          </button>
           <button type="button" class="create-menu-item" data-action="import">
             <span class="create-menu-icon">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
             </span>
-            <span class="create-menu-text"><strong>Importar lista</strong><small>Colar links e tags de uma planilha</small></span>
+            <span class="create-menu-text"><strong>Importar lista</strong><small>Colar links e coleções de uma planilha</small></span>
           </button>
           <button type="button" class="create-menu-item" data-action="extension">
             <span class="create-menu-icon">
@@ -228,6 +216,37 @@
       <input type="text" id="collection-picker-new-input" placeholder="Nova coleção..." autocomplete="off" />
       <button type="submit" class="small-btn">Criar</button>
     </form>
+  </div>
+</div>
+
+<div id="search-overlay" class="search-overlay hidden">
+  <div class="search-panel" role="dialog" aria-modal="true">
+    <form class="search-input-row" id="search-overlay-form">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <span id="search-category-chip" class="search-category-chip hidden">
+        <span id="search-category-label"></span>
+        <button type="button" id="search-category-clear" aria-label="Limpar categoria">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 6 12 12M18 6 6 18"/></svg>
+        </button>
+      </span>
+      <input type="text" id="search-overlay-input" placeholder="Buscar itens salvos ou adicionar novos..." autocomplete="off" />
+    </form>
+    <div class="search-panel-body">
+      <div class="search-section">
+        <h4>Sugestões</h4>
+        <div class="search-category-chips">
+          <button type="button" class="search-suggestion-chip" data-category="filmes">Filmes</button>
+          <button type="button" class="search-suggestion-chip" data-category="musicas">Músicas</button>
+          <button type="button" class="search-suggestion-chip" data-category="series">Séries</button>
+          <button type="button" class="search-suggestion-chip" data-category="livros" disabled>Livros <small>em breve</small></button>
+        </div>
+      </div>
+      <div class="search-section">
+        <h4>Resultados</h4>
+        <p id="search-overlay-status" class="muted small hidden"></p>
+        <div id="search-overlay-results" class="search-results-list"></div>
+      </div>
+    </div>
   </div>
 </div>
 

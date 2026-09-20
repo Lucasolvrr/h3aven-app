@@ -26,6 +26,14 @@ const avatarBtn = document.getElementById('avatar-btn');
 const avatarInitial = document.getElementById('avatar-initial');
 const avatarMenu = document.getElementById('avatar-menu');
 const headerSearchBtn = document.getElementById('header-search-btn');
+const searchOverlay = document.getElementById('search-overlay');
+const searchOverlayForm = document.getElementById('search-overlay-form');
+const searchOverlayInput = document.getElementById('search-overlay-input');
+const searchOverlayResults = document.getElementById('search-overlay-results');
+const searchOverlayStatus = document.getElementById('search-overlay-status');
+const searchCategoryChip = document.getElementById('search-category-chip');
+const searchCategoryLabel = document.getElementById('search-category-label');
+const searchCategoryClear = document.getElementById('search-category-clear');
 const avatarWrap = document.querySelector('.avatar-wrap');
 const themeToggle = document.getElementById('theme-toggle');
 const densityToggle = document.getElementById('density-toggle');
@@ -136,11 +144,6 @@ async function init() {
   initThemeToggle();
   initDensityToggle();
   initCollectionBackBtn();
-
-  headerSearchBtn.addEventListener('click', () => {
-    if (currentView !== 'home') location.hash = '#/';
-    setTimeout(() => searchInput.focus(), 0);
-  });
 
   const { data: { session } } = await supabase.auth.getSession();
   handleSession(session);
@@ -903,6 +906,7 @@ document.addEventListener('keydown', (e) => {
   if (!linkDrawerOverlay.classList.contains('hidden')) closeDrawer();
   if (!createModalOverlay.classList.contains('hidden')) closeCreateModal();
   if (!collectionPickerOverlay.classList.contains('hidden')) closeCollectionPicker();
+  if (!searchOverlay.classList.contains('hidden')) closeSearchOverlay();
 });
 
 searchInput.addEventListener('input', () => {
@@ -1037,14 +1041,11 @@ async function deleteLink(id) {
 function openCreateModal(kind) {
   createModalBody.innerHTML = CREATE_MODAL_TEMPLATES[kind]();
   CREATE_MODAL_INIT[kind]();
-  createModalOverlay.querySelector('.create-modal').classList.toggle('create-modal--media', kind === 'media');
-  createModalOverlay.classList.toggle('overlay--intense-blur', kind === 'media');
   createModalOverlay.classList.remove('hidden');
 }
 
 function closeCreateModal() {
   createModalOverlay.classList.add('hidden');
-  createModalOverlay.classList.remove('overlay--intense-blur');
   createModalBody.innerHTML = '';
 }
 
@@ -1061,24 +1062,6 @@ const CREATE_MODAL_TEMPLATES = {
       <button type="submit">Criar</button>
     </form>
     <p id="cm-collection-status" class="muted small"></p>
-  `,
-  media: () => `
-    <h2>Filme ou série</h2>
-    <div class="media-search-input-wrap">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
-      <input type="text" id="cm-media-search-input" placeholder="Buscar por título..." autocomplete="off" />
-    </div>
-    <p id="cm-media-status" class="muted small"></p>
-    <div id="cm-media-results" class="media-results"></div>
-  `,
-  music: () => `
-    <h2>Adicionar música</h2>
-    <form id="cm-music-form" class="cm-form">
-      <input type="url" id="cm-music-url" placeholder="Link do Spotify" autocomplete="off" required />
-      <input type="text" id="cm-music-tags" placeholder="tags separadas por vírgula" autocomplete="off" />
-      <button type="submit">Salvar</button>
-    </form>
-    <p id="cm-music-status" class="muted small"></p>
   `,
   import: () => `
     <h2>Importar lista</h2>
@@ -1115,63 +1098,6 @@ const CREATE_MODAL_INIT = {
         location.hash = `#/colecoes/${col.id}`;
       } else {
         status.textContent = 'Erro ao criar (nome já existe?).';
-      }
-    });
-  },
-  media: () => {
-    const searchInputEl = document.getElementById('cm-media-search-input');
-    const statusEl = document.getElementById('cm-media-status');
-    const resultsEl = document.getElementById('cm-media-results');
-    let debounceTimer;
-
-    async function runSearch() {
-      const query = searchInputEl.value.trim();
-      if (!query) {
-        statusEl.textContent = '';
-        resultsEl.innerHTML = '';
-        return;
-      }
-      statusEl.textContent = 'Buscando...';
-      const { data, error } = await supabase.functions.invoke('fetch-metadata', {
-        body: { action: 'search', query },
-      });
-      if (error) {
-        statusEl.textContent = `Erro na busca: ${error.message}`;
-        return;
-      }
-      const results = data?.results || [];
-      resultsEl.innerHTML = '';
-      statusEl.textContent = results.length ? '' : 'Nada encontrado.';
-      results.forEach((r) => resultsEl.appendChild(buildMediaResult(r, statusEl)));
-    }
-
-    searchInputEl.addEventListener('input', () => {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(runSearch, 350);
-    });
-    searchInputEl.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        clearTimeout(debounceTimer);
-        runSearch();
-      }
-    });
-    searchInputEl.focus();
-  },
-  music: () => {
-    const form = document.getElementById('cm-music-form');
-    const status = document.getElementById('cm-music-status');
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const url = document.getElementById('cm-music-url').value.trim();
-      const tagsRaw = document.getElementById('cm-music-tags').value.trim();
-      const collectionNames = tagsRaw ? tagsRaw.split(',').map((t) => t.trim().replace(/^#/, '')).filter(Boolean) : [];
-      status.textContent = 'Salvando...';
-      const row = await saveLink({ url, title: '', collectionNames, contentType: 'music' });
-      if (row) {
-        closeCreateModal();
-      } else {
-        status.textContent = 'Erro ao salvar.';
       }
     });
   },
@@ -1231,63 +1157,196 @@ const CREATE_MODAL_INIT = {
   },
 };
 
-function buildMediaResult(result, statusEl) {
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'media-result';
-
-  const poster = posterUrl(result.posterPath);
-  if (poster) {
-    const img = document.createElement('img');
-    img.src = poster;
-    img.alt = '';
-    img.loading = 'lazy';
-    btn.appendChild(img);
+// Salva um resultado de busca externa (TMDB ou Spotify) direto na
+// biblioteca — reaproveitado pelo overlay de busca unificada.
+async function saveExternalResult(result) {
+  let payload;
+  if (result.mediaType === 'music') {
+    if (!result.url) return { error: 'Sem link do Spotify pra esse resultado.' };
+    payload = {
+      url: result.url,
+      title: result.title,
+      source: 'spotify',
+      content_type: 'music',
+      external_id: `spotify:track:${result.id}`,
+      fetch_status: 'ready',
+      metadata: { title: result.title, artist: result.artist, year: result.year, image: result.image },
+    };
+  } else {
+    const mediaType = result.mediaType === 'tv' ? 'tv' : 'movie';
+    payload = {
+      url: `https://www.themoviedb.org/${mediaType}/${result.id}`,
+      title: result.title,
+      source: 'tmdb',
+      content_type: mediaType,
+      external_id: `tmdb:${mediaType}:${result.id}`,
+      fetch_status: 'ready',
+      metadata: { title: result.title, year: result.year, posterPath: result.posterPath, overview: result.overview },
+    };
   }
 
-  const info = document.createElement('div');
-  info.className = 'media-result-info';
-  const title = document.createElement('div');
-  title.className = 'media-result-title';
-  title.textContent = result.title;
-  const year = document.createElement('div');
-  year.className = 'media-result-year';
-  year.textContent = result.year || '';
-  info.append(title, year);
-  btn.appendChild(info);
-
-  btn.addEventListener('click', () => saveMediaResult(result, statusEl));
-  return btn;
-}
-
-async function saveMediaResult(result, statusEl) {
-  const mediaType = result.mediaType === 'tv' ? 'tv' : 'movie';
-  const url = `https://www.themoviedb.org/${mediaType}/${result.id}`;
-
-  const { error } = await supabase.from('links').insert({
-    url,
-    title: result.title,
-    source: 'tmdb',
-    content_type: mediaType,
-    external_id: `tmdb:${mediaType}:${result.id}`,
-    fetch_status: 'ready',
-    metadata: {
-      title: result.title,
-      year: result.year,
-      posterPath: result.posterPath,
-      overview: result.overview,
-    },
-  });
-
+  const { error } = await supabase.from('links').insert(payload);
   if (error) {
     console.error(error);
-    statusEl.textContent = 'Erro ao salvar.';
+    return { error: 'Erro ao salvar.' };
+  }
+  loadLinks();
+  return { error: null };
+}
+
+// --- Overlay de busca unificada (Início/header) ---
+// Sem categoria travada: filtra os itens já salvos (mesma lógica de
+// matchesQuery já usada na hero). Com uma categoria travada (Filmes/Séries/
+// Músicas): busca externa (TMDB ou Spotify), absorvendo os antigos fluxos
+// "Filme ou série"/"Música" do Criar.
+
+const SEARCH_CATEGORY_LABELS = { filmes: 'Filmes', series: 'Séries', musicas: 'Músicas' };
+let searchOverlayCategory = null;
+let searchOverlayDebounce;
+
+function openSearchOverlay() {
+  searchOverlayCategory = null;
+  searchCategoryChip.classList.add('hidden');
+  document.querySelectorAll('.search-suggestion-chip').forEach((c) => c.classList.remove('active'));
+  searchOverlayInput.value = '';
+  searchOverlayResults.innerHTML = '';
+  searchOverlayStatus.classList.add('hidden');
+  searchOverlay.classList.remove('hidden');
+  setTimeout(() => searchOverlayInput.focus(), 0);
+}
+
+function closeSearchOverlay() {
+  searchOverlay.classList.add('hidden');
+}
+
+function setSearchCategory(category) {
+  searchOverlayCategory = category;
+  document.querySelectorAll('.search-suggestion-chip').forEach((c) => {
+    c.classList.toggle('active', c.dataset.category === category);
+  });
+  if (category) {
+    searchCategoryLabel.textContent = SEARCH_CATEGORY_LABELS[category];
+    searchCategoryChip.classList.remove('hidden');
+  } else {
+    searchCategoryChip.classList.add('hidden');
+  }
+  searchOverlayInput.focus();
+  runSearchOverlayQuery();
+}
+
+function renderSavedResults(query) {
+  const matches = query ? allLinks.filter((l) => matchesQuery(l, query)).slice(0, 20) : [];
+  searchOverlayResults.innerHTML = '';
+  searchOverlayStatus.classList.toggle('hidden', !query || matches.length > 0);
+  if (query && !matches.length) searchOverlayStatus.textContent = 'Nada encontrado nos itens salvos.';
+  matches.forEach((link) => {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'search-result-row';
+    const thumb = document.createElement('div');
+    thumb.className = 'search-result-thumb';
+    const image = cardImageFor(link);
+    thumb.style.background = image ? `url(${image}) center/cover` : placeholderGradient(link.id);
+    row.appendChild(thumb);
+    const info = document.createElement('div');
+    info.className = 'search-result-info';
+    info.innerHTML = `<span class="search-result-title">${escapeHtml(cardTitleFor(link))}</span><span class="search-result-subtitle">${escapeHtml(domainFor(link.url))}</span>`;
+    row.appendChild(info);
+    row.addEventListener('click', () => {
+      closeSearchOverlay();
+      openDrawer(link);
+    });
+    searchOverlayResults.appendChild(row);
+  });
+}
+
+async function runSearchOverlayQuery() {
+  const query = searchOverlayInput.value.trim();
+
+  if (!searchOverlayCategory) {
+    renderSavedResults(query);
     return;
   }
 
-  statusEl.textContent = 'Salvo!';
-  loadLinks();
-  setTimeout(closeCreateModal, 700);
+  if (!query) {
+    searchOverlayResults.innerHTML = '';
+    searchOverlayStatus.classList.add('hidden');
+    return;
+  }
+
+  searchOverlayStatus.textContent = 'Buscando...';
+  searchOverlayStatus.classList.remove('hidden');
+
+  const { data, error } = await supabase.functions.invoke('fetch-metadata', {
+    body: { action: 'search', category: searchOverlayCategory, query },
+  });
+
+  if (error) {
+    searchOverlayStatus.textContent = `Erro na busca: ${error.message}`;
+    return;
+  }
+
+  const results = data?.results || [];
+  searchOverlayResults.innerHTML = '';
+  searchOverlayStatus.classList.toggle('hidden', results.length > 0);
+  if (!results.length) searchOverlayStatus.textContent = 'Nada encontrado.';
+
+  results.forEach((result) => {
+    const row = document.createElement('div');
+    row.className = 'search-result-row';
+    const thumb = document.createElement('div');
+    thumb.className = 'search-result-thumb';
+    const image = result.mediaType === 'music' ? result.image : posterUrl(result.posterPath);
+    if (image) thumb.style.backgroundImage = `url(${image})`;
+    row.appendChild(thumb);
+    const info = document.createElement('div');
+    info.className = 'search-result-info';
+    const subtitle = result.mediaType === 'music' ? result.artist : result.year;
+    info.innerHTML = `<span class="search-result-title">${escapeHtml(result.title)}</span><span class="search-result-subtitle">${escapeHtml(subtitle || '')}</span>`;
+    row.appendChild(info);
+    const action = document.createElement('button');
+    action.type = 'button';
+    action.className = 'search-result-action';
+    action.setAttribute('aria-label', 'Salvar');
+    action.innerHTML = BOOKMARK_ICON_OUTLINE;
+    action.addEventListener('click', async () => {
+      action.disabled = true;
+      const { error: saveError } = await saveExternalResult(result);
+      if (saveError) {
+        action.disabled = false;
+        return;
+      }
+      action.innerHTML = BOOKMARK_ICON_FILLED;
+    });
+    row.appendChild(action);
+    searchOverlayResults.appendChild(row);
+  });
 }
+
+headerSearchBtn.addEventListener('click', openSearchOverlay);
+
+document.querySelectorAll('.search-suggestion-chip').forEach((chip) => {
+  chip.addEventListener('click', () => {
+    if (chip.disabled) return;
+    setSearchCategory(chip.dataset.category);
+  });
+});
+
+searchCategoryClear.addEventListener('click', () => setSearchCategory(null));
+
+searchOverlayInput.addEventListener('input', () => {
+  clearTimeout(searchOverlayDebounce);
+  searchOverlayDebounce = setTimeout(runSearchOverlayQuery, 350);
+});
+
+searchOverlayForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  clearTimeout(searchOverlayDebounce);
+  runSearchOverlayQuery();
+});
+
+searchOverlay.addEventListener('click', (e) => {
+  if (e.target === searchOverlay) closeSearchOverlay();
+});
 
 init();
