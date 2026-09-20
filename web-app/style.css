@@ -133,8 +133,8 @@ h1 {
 .auth-divider::before,
 .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
 
-#login-form { width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 10px; }
-#login-form input {
+#login-form, #recovery-form { width: 100%; max-width: 320px; display: flex; flex-direction: column; gap: 10px; }
+#login-form input, #recovery-form input {
   padding: 10px 14px;
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);
@@ -143,8 +143,8 @@ h1 {
   color: var(--ink);
   font-family: inherit;
 }
-#login-form button { margin-top: 4px; }
-#login-status { margin-top: 12px; min-height: 18px; }
+#login-form button, #recovery-form button { margin-top: 4px; }
+#login-status, #recovery-status { margin-top: 12px; min-height: 18px; }
 
 .link-btn {
   background: none;
@@ -1180,6 +1180,7 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
   font-family: var(--font-mono);
   font-size: 13px;
 }
+.cm-form-section { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
 
 /* Popover de "salvar em coleção" */
 .collection-picker-overlay {

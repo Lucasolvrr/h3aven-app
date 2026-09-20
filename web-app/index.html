@@ -70,6 +70,24 @@
   </div>
 </div>
 
+<div id="recovery-view" class="screen hidden">
+  <div class="auth-panel">
+    <div class="auth-form-col">
+      <img class="auth-logo" src="icons/favicon-48.png" alt="h3aven" />
+      <h1>Defina uma nova senha</h1>
+      <p class="muted">Escolha uma nova senha para sua conta.</p>
+
+      <form id="recovery-form">
+        <input type="password" id="recovery-password-input" placeholder="Nova senha" required minlength="6" autocomplete="new-password" />
+        <input type="password" id="recovery-password-confirm-input" placeholder="Confirmar nova senha" required minlength="6" autocomplete="new-password" />
+        <button type="submit">Salvar nova senha</button>
+      </form>
+      <p id="recovery-status" class="muted small"></p>
+    </div>
+    <div class="auth-art-col" aria-hidden="true"></div>
+  </div>
+</div>
+
 <div id="app-view" class="screen hidden">
   <header class="app-header">
     <div class="app-header-blur" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
@@ -119,7 +137,7 @@
         <div id="avatar-menu" class="avatar-menu hidden">
           <span id="user-email" class="muted small"></span>
           <div class="avatar-menu-divider"></div>
-          <button type="button" class="avatar-menu-item" disabled>Configurações</button>
+          <button type="button" id="settings-btn" class="avatar-menu-item">Configurações</button>
           <div class="avatar-menu-row">
             <span class="small muted">Tema</span>
             <div class="segmented" id="theme-toggle">

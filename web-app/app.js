@@ -19,6 +19,9 @@ const authSubmitBtn = document.getElementById('auth-submit-btn');
 const authToggleText = document.getElementById('auth-toggle-text');
 const authToggleBtn = document.getElementById('auth-toggle-btn');
 const authForgotBtn = document.getElementById('auth-forgot-btn');
+const recoveryView = document.getElementById('recovery-view');
+const recoveryForm = document.getElementById('recovery-form');
+const recoveryStatus = document.getElementById('recovery-status');
 const userEmailEl = document.getElementById('user-email');
 const logoutBtn = document.getElementById('logout-btn');
 const searchInput = document.getElementById('search-input');
@@ -32,6 +35,7 @@ const heroGreeting = document.getElementById('hero-greeting');
 const avatarBtn = document.getElementById('avatar-btn');
 const avatarInitial = document.getElementById('avatar-initial');
 const avatarMenu = document.getElementById('avatar-menu');
+const settingsBtn = document.getElementById('settings-btn');
 const headerSearchBtn = document.getElementById('header-search-btn');
 const searchOverlay = document.getElementById('search-overlay');
 const searchOverlayForm = document.getElementById('search-overlay-form');
@@ -135,6 +139,10 @@ const NEEDS_ENRICHMENT = new Set(['link', 'social', 'youtube', 'music', 'tweet',
 
 async function init() {
   avatarBtn.addEventListener('click', () => avatarMenu.classList.toggle('hidden'));
+  settingsBtn.addEventListener('click', () => {
+    avatarMenu.classList.add('hidden');
+    openCreateModal('account');
+  });
   document.addEventListener('click', (e) => {
     if (!avatarWrap.contains(e.target)) avatarMenu.classList.add('hidden');
     if (!createWrap.contains(e.target)) createMenu.classList.add('hidden');
@@ -152,10 +160,15 @@ async function init() {
   initDensityToggle();
   initCollectionBackBtn();
 
+  if (new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery') {
+    isPasswordRecovery = true;
+  }
+
   const { data: { session } } = await supabase.auth.getSession();
   handleSession(session);
 
-  supabase.auth.onAuthStateChange((_event, session) => {
+  supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'PASSWORD_RECOVERY') isPasswordRecovery = true;
     handleSession(session);
   });
 
@@ -256,8 +269,17 @@ function renderRoute() {
   }
 }
 
+let isPasswordRecovery = false;
+
 function handleSession(session) {
   currentSession = session;
+  if (isPasswordRecovery && session) {
+    loginView.classList.add('hidden');
+    appView.classList.add('hidden');
+    recoveryView.classList.remove('hidden');
+    return;
+  }
+  recoveryView.classList.add('hidden');
   if (session) {
     loginView.classList.add('hidden');
     appView.classList.remove('hidden');
@@ -271,6 +293,25 @@ function handleSession(session) {
     appView.classList.add('hidden');
   }
 }
+
+recoveryForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const password = document.getElementById('recovery-password-input').value;
+  const confirm = document.getElementById('recovery-password-confirm-input').value;
+  if (password !== confirm) {
+    recoveryStatus.textContent = 'As senhas não coincidem.';
+    return;
+  }
+  recoveryStatus.textContent = 'Salvando...';
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) {
+    recoveryStatus.textContent = `Erro: ${error.message}`;
+    return;
+  }
+  isPasswordRecovery = false;
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+  handleSession(currentSession);
+});
 
 let authMode = 'signup';
 
@@ -1134,6 +1175,20 @@ const CREATE_MODAL_TEMPLATES = {
       <button type="button" id="cm-copy-token-btn" class="ghost small-btn">Copiar</button>
     </div>
   `,
+  account: () => `
+    <h2>Configurações da conta</h2>
+    <form id="cm-account-email-form" class="cm-form">
+      <input type="email" id="cm-account-email" required autocomplete="email" />
+      <button type="submit">Salvar email</button>
+    </form>
+    <p id="cm-account-email-status" class="muted small"></p>
+
+    <form id="cm-account-password-form" class="cm-form cm-form-section">
+      <input type="password" id="cm-account-password" placeholder="Nova senha" minlength="6" required autocomplete="new-password" />
+      <button type="submit">Salvar senha</button>
+    </form>
+    <p id="cm-account-password-status" class="muted small"></p>
+  `,
 };
 
 const CREATE_MODAL_INIT = {
@@ -1206,6 +1261,35 @@ const CREATE_MODAL_INIT = {
       await navigator.clipboard.writeText(tokenEl.dataset.value);
       copyBtnEl.textContent = 'Copiado!';
       setTimeout(() => (copyBtnEl.textContent = 'Copiar'), 1500);
+    });
+  },
+  account: () => {
+    const emailForm = document.getElementById('cm-account-email-form');
+    const emailInput = document.getElementById('cm-account-email');
+    const emailStatus = document.getElementById('cm-account-email-status');
+    emailInput.value = currentSession.user.email;
+
+    emailForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const newEmail = emailInput.value.trim();
+      if (!newEmail || newEmail === currentSession.user.email) return;
+      emailStatus.textContent = 'Salvando...';
+      const { error } = await supabase.auth.updateUser({ email: newEmail });
+      emailStatus.textContent = error
+        ? `Erro: ${error.message}`
+        : 'Confira a caixa de entrada do novo email para confirmar a troca.';
+    });
+
+    const passwordForm = document.getElementById('cm-account-password-form');
+    const passwordFormInput = document.getElementById('cm-account-password');
+    const passwordStatus = document.getElementById('cm-account-password-status');
+
+    passwordForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      passwordStatus.textContent = 'Salvando...';
+      const { error } = await supabase.auth.updateUser({ password: passwordFormInput.value });
+      passwordStatus.textContent = error ? `Erro: ${error.message}` : 'Senha atualizada!';
+      if (!error) passwordForm.reset();
     });
   },
 };
