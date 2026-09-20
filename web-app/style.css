@@ -11,7 +11,7 @@
   --font-display: 'Lastik Free', 'Geist Sans', system-ui, sans-serif;
   --font-body: 'Geist Sans', 'Inter', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', monospace;
-  --bg: #141414;
+  --bg: #111114;
   --surface-1: #1a1a1a;
   --surface-2: #232428;
   --ink: #ffffff;
@@ -1113,7 +1113,7 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
   flex-direction: column;
   gap: 16px;
   padding: 16px 8px 24px;
-  background: rgba(17, 19, 22, 0.98);
+  background: rgba(17, 17, 20, 0.98);
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55);
