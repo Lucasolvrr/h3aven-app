@@ -47,21 +47,20 @@ const collectionPickerList = document.getElementById('collection-picker-list');
 const collectionPickerNewForm = document.getElementById('collection-picker-new-form');
 const collectionPickerNewInput = document.getElementById('collection-picker-new-input');
 
-const quickviewOverlay = document.getElementById('quickview-overlay');
-const quickviewClose = document.getElementById('quickview-close');
-const quickviewImg = document.getElementById('quickview-img');
-const quickviewOpenLink = document.getElementById('quickview-open-link');
-const quickviewTitle = document.getElementById('quickview-title');
-const quickviewDomain = document.getElementById('quickview-domain');
-const quickviewTime = document.getElementById('quickview-time');
-const quickviewSubtitleRow = document.getElementById('quickview-subtitle-row');
-const quickviewDescription = document.getElementById('quickview-description');
-const quickviewTags = document.getElementById('quickview-tags');
-const quickviewAddTagForm = document.getElementById('quickview-add-tag-form');
-const quickviewTagInput = document.getElementById('quickview-tag-input');
-const quickviewNotes = document.getElementById('quickview-notes');
-const quickviewCopyBtn = document.getElementById('quickview-copy-btn');
-const quickviewDeleteBtn = document.getElementById('quickview-delete-btn');
+const linkDrawerOverlay = document.getElementById('link-drawer-overlay');
+const linkDrawerCollage = document.getElementById('link-drawer-collage');
+const drawerSaveBtn = document.getElementById('drawer-save-btn');
+const drawerCloseBtn = document.getElementById('drawer-close-btn');
+const drawerTitle = document.getElementById('drawer-title');
+const drawerSource = document.getElementById('drawer-source');
+const drawerSubtitle = document.getElementById('drawer-subtitle');
+const drawerDescription = document.getElementById('drawer-description');
+const drawerTime = document.getElementById('drawer-time');
+const drawerCollections = document.getElementById('drawer-collections');
+const drawerNotes = document.getElementById('drawer-notes');
+const drawerShareBtn = document.getElementById('drawer-share-btn');
+const drawerOpenLink = document.getElementById('drawer-open-link');
+const drawerDeleteBtn = document.getElementById('drawer-delete-btn');
 
 const extPromoToast = document.getElementById('ext-promo-toast');
 const extPromoClose = document.getElementById('ext-promo-close');
@@ -78,7 +77,7 @@ let collections = [];
 let homeFilter = '';
 let currentView = 'home';
 let currentCollectionId = null;
-let currentQuickviewLink = null;
+let currentDrawerLink = null;
 let collectionPickerLink = null;
 
 const VIEWS = {
@@ -481,11 +480,11 @@ function buildCard(link) {
 
   li.appendChild(media);
 
-  li.addEventListener('click', () => openQuickview(link));
+  li.addEventListener('click', () => openDrawer(link));
   li.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
-      openQuickview(link);
+      openDrawer(link);
     }
   });
 
@@ -640,6 +639,9 @@ function openCollectionPicker(link) {
 
 function closeCollectionPicker() {
   collectionPickerOverlay.classList.add('hidden');
+  if (currentDrawerLink && !linkDrawerOverlay.classList.contains('hidden')) {
+    renderDrawerCollections(currentDrawerLink);
+  }
   collectionPickerLink = null;
 }
 
@@ -658,21 +660,21 @@ function renderCollectionPickerList() {
     row.type = 'button';
     row.className = 'collection-picker-item';
     row.innerHTML = `<span>${escapeHtml(col.name)}</span>${inCollection ? '<span class="collection-picker-check">✓</span>' : ''}`;
-    row.addEventListener('click', () => toggleLinkInCollection(col, row));
+    row.addEventListener('click', () => toggleLinkInCollection(col, collectionPickerLink));
     collectionPickerList.appendChild(row);
   });
 }
 
-async function toggleLinkInCollection(col, rowEl) {
-  const inCollection = col.linkIds.includes(collectionPickerLink.id);
+async function toggleLinkInCollection(col, link) {
+  const inCollection = col.linkIds.includes(link.id);
   if (inCollection) {
-    await supabase.from('collection_links').delete().eq('collection_id', col.id).eq('link_id', collectionPickerLink.id);
-    col.linkIds = col.linkIds.filter((id) => id !== collectionPickerLink.id);
+    await supabase.from('collection_links').delete().eq('collection_id', col.id).eq('link_id', link.id);
+    col.linkIds = col.linkIds.filter((id) => id !== link.id);
   } else {
-    await supabase.from('collection_links').insert({ collection_id: col.id, link_id: collectionPickerLink.id });
-    col.linkIds.push(collectionPickerLink.id);
+    await supabase.from('collection_links').insert({ collection_id: col.id, link_id: link.id });
+    col.linkIds.push(link.id);
   }
-  renderCollectionPickerList();
+  if (!collectionPickerOverlay.classList.contains('hidden')) renderCollectionPickerList();
   if (currentView === 'colecoes' && currentCollectionId) renderRoute();
 }
 
@@ -693,7 +695,7 @@ collectionPickerOverlay.addEventListener('click', (e) => {
   if (e.target === collectionPickerOverlay) closeCollectionPicker();
 });
 
-// --- Quickview modal ---
+// --- Drawer lateral (detalhe de um item salvo) ---
 
 function timeAgo(dateStr) {
   const diffMs = Date.now() - new Date(dateStr).getTime();
@@ -733,62 +735,134 @@ function faviconIconFor(link) {
   return `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64" alt="" />`;
 }
 
-function openQuickview(link) {
-  currentQuickviewLink = link;
+// Recortes decorativos da mesma imagem do link, girados/posicionados
+// diferente — pura composição CSS (mesma imagem, position/rotação
+// diferentes por tile), sem precisar gerar nada no servidor.
+const DRAWER_COLLAGE_TILES = [
+  { top: '8%', left: '68%', width: '17%', height: '32%', rot: 8, radius: '16px 20px 12px 24px', bgPos: '20% 10%' },
+  { top: '46%', left: '46%', width: '17%', height: '36%', rot: -5, radius: '18px 18px 24px 24px', bgPos: '60% 70%' },
+  { top: '52%', left: '33%', width: '8%', height: '20%', rot: 3, radius: '8px 8px 16px 16px', bgPos: '40% 40%' },
+  { top: '36%', left: '4%', width: '15%', height: '20%', rot: -4, radius: '24px 12px 24px 12px', bgPos: '80% 20%' },
+  { top: '28%', left: '37%', width: '8%', height: '15%', rot: 6, radius: '10px', bgPos: '10% 80%' },
+  { top: '72%', left: '66%', width: '14%', height: '24%', rot: 0, radius: '20px 20px 0 0', bgPos: '50% 50%' },
+  { top: '0%', left: '46%', width: '9%', height: '10%', rot: 0, radius: '0 0 12px 12px', bgPos: '30% 90%' },
+];
 
-  const image = cardImageFor(link);
-  quickviewImg.classList.toggle('hidden', !image);
-  quickviewImg.src = image || '';
+function buildDrawerCollage(image) {
+  linkDrawerCollage.innerHTML = '';
+  linkDrawerCollage.classList.toggle('hidden', !image);
+  if (!image) return;
+  DRAWER_COLLAGE_TILES.forEach((t) => {
+    const tile = document.createElement('div');
+    tile.className = 'link-drawer-collage-tile';
+    tile.style.top = t.top;
+    tile.style.left = t.left;
+    tile.style.width = t.width;
+    tile.style.height = t.height;
+    tile.style.borderRadius = t.radius;
+    tile.style.backgroundImage = `url(${image})`;
+    tile.style.backgroundPosition = t.bgPos;
+    tile.style.transform = `rotate(${t.rot}deg)`;
+    linkDrawerCollage.appendChild(tile);
+  });
+}
 
-  quickviewTitle.textContent = cardTitleFor(link);
-  quickviewDomain.textContent = domainFor(link.url);
-  quickviewTime.textContent = timeAgo(link.created_at);
-  quickviewOpenLink.href = link.url;
+function renderDrawerCollections(link) {
+  drawerCollections.innerHTML = '';
+  collections
+    .filter((c) => c.linkIds.includes(link.id))
+    .forEach((col) => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'link-drawer-collection-chip';
+      chip.textContent = col.name;
+      chip.title = 'Remover dessa coleção';
+      chip.addEventListener('click', async () => {
+        await toggleLinkInCollection(col, link);
+        renderDrawerCollections(link);
+      });
+      drawerCollections.appendChild(chip);
+    });
+
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.className = 'link-drawer-collection-add';
+  addBtn.setAttribute('aria-label', 'Adicionar a uma coleção');
+  addBtn.innerHTML =
+    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>';
+  addBtn.addEventListener('click', () => openCollectionPicker(link));
+  drawerCollections.appendChild(addBtn);
+}
+
+function openDrawer(link) {
+  currentDrawerLink = link;
+
+  drawerTitle.textContent = cardTitleFor(link);
+  drawerSource.innerHTML = `${faviconIconFor(link)}<span>${escapeHtml(domainFor(link.url))}</span>`;
 
   const subtitle = cardSubtitleFor(link);
-  quickviewSubtitleRow.textContent = subtitle || '';
-  quickviewSubtitleRow.classList.toggle('hidden', !subtitle);
+  drawerSubtitle.textContent = subtitle || '';
+  drawerSubtitle.classList.toggle('hidden', !subtitle);
 
   const description = cardDescriptionFor(link);
-  quickviewDescription.textContent = description || 'Sem resumo disponível.';
+  drawerDescription.textContent = description || 'Sem resumo disponível.';
 
-  quickviewNotes.value = link.notes || '';
+  drawerTime.textContent = timeAgo(link.created_at);
+  drawerOpenLink.href = link.url;
 
-  quickviewOverlay.classList.remove('hidden');
+  drawerNotes.value = link.notes || '';
+
+  renderDrawerCollections(link);
+  buildDrawerCollage(cardImageFor(link));
+
+  linkDrawerOverlay.classList.remove('hidden');
 }
 
-function closeQuickview() {
-  quickviewOverlay.classList.add('hidden');
-  currentQuickviewLink = null;
+function closeDrawer() {
+  linkDrawerOverlay.classList.add('hidden');
+  currentDrawerLink = null;
 }
 
-quickviewNotes.addEventListener('blur', async () => {
-  if (!currentQuickviewLink) return;
-  const notes = quickviewNotes.value.trim();
-  await supabase.from('links').update({ notes: notes || null }).eq('id', currentQuickviewLink.id);
-  currentQuickviewLink.notes = notes;
+drawerNotes.addEventListener('blur', async () => {
+  if (!currentDrawerLink) return;
+  const notes = drawerNotes.value.trim();
+  await supabase.from('links').update({ notes: notes || null }).eq('id', currentDrawerLink.id);
+  currentDrawerLink.notes = notes;
 });
 
-quickviewCopyBtn.addEventListener('click', async () => {
-  if (!currentQuickviewLink) return;
-  await navigator.clipboard.writeText(currentQuickviewLink.url);
-  quickviewCopyBtn.textContent = 'Copiado!';
-  setTimeout(() => (quickviewCopyBtn.textContent = 'Copiar link'), 1500);
+drawerShareBtn.addEventListener('click', async () => {
+  if (!currentDrawerLink) return;
+  const shareLabel = drawerShareBtn.querySelector('span');
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: cardTitleFor(currentDrawerLink), url: currentDrawerLink.url });
+      return;
+    } catch {
+      // usuário cancelou o share nativo — cai pro fallback de copiar
+    }
+  }
+  await navigator.clipboard.writeText(currentDrawerLink.url);
+  shareLabel.textContent = 'Copiado!';
+  setTimeout(() => (shareLabel.textContent = 'Compartilhar'), 1500);
 });
 
-quickviewDeleteBtn.addEventListener('click', async () => {
-  if (!currentQuickviewLink) return;
-  await deleteLink(currentQuickviewLink.id);
-  closeQuickview();
+drawerSaveBtn.addEventListener('click', () => {
+  if (currentDrawerLink) openCollectionPicker(currentDrawerLink);
 });
 
-quickviewClose.addEventListener('click', closeQuickview);
-quickviewOverlay.addEventListener('click', (e) => {
-  if (e.target === quickviewOverlay) closeQuickview();
+drawerDeleteBtn.addEventListener('click', async () => {
+  if (!currentDrawerLink) return;
+  await deleteLink(currentDrawerLink.id);
+  closeDrawer();
+});
+
+drawerCloseBtn.addEventListener('click', closeDrawer);
+linkDrawerOverlay.addEventListener('click', (e) => {
+  if (e.target === linkDrawerOverlay || e.target.classList.contains('link-drawer-backdrop')) closeDrawer();
 });
 document.addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  if (!quickviewOverlay.classList.contains('hidden')) closeQuickview();
+  if (!linkDrawerOverlay.classList.contains('hidden')) closeDrawer();
   if (!createModalOverlay.classList.contains('hidden')) closeCreateModal();
   if (!collectionPickerOverlay.classList.contains('hidden')) closeCollectionPicker();
 });
@@ -837,7 +911,7 @@ function renderSearchSuggestions() {
     label.textContent = cardTitleFor(link);
     item.appendChild(label);
     item.addEventListener('click', () => {
-      openQuickview(link);
+      openDrawer(link);
       searchSuggestions.classList.add('hidden');
     });
     searchSuggestions.appendChild(item);
