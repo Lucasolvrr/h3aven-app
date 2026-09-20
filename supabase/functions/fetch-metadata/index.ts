@@ -244,8 +244,12 @@ async function getSpotifyToken() {
       signal,
     })
   );
-  if (!res.ok) throw new Error(`Spotify auth failed: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Spotify auth failed: ${res.status} ${body}`);
+  }
   const data = await res.json();
+  if (!data.access_token) throw new Error(`Spotify auth returned no access_token: ${JSON.stringify(data)}`);
   spotifyTokenCache = { token: data.access_token, expiresAt: Date.now() + (data.expires_in - 60) * 1000 };
   return spotifyTokenCache.token;
 }
@@ -258,7 +262,10 @@ async function spotifySearch(query) {
       signal,
     })
   );
-  if (!res.ok) throw new Error(`Spotify search failed: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Spotify search failed: ${res.status} ${body}`);
+  }
   const data = await res.json();
   return (data.tracks?.items || []).map((t) => ({
     id: t.id,
