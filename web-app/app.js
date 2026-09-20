@@ -46,6 +46,7 @@ const collectionPickerOverlay = document.getElementById('collection-picker-overl
 const collectionPickerList = document.getElementById('collection-picker-list');
 const collectionPickerNewForm = document.getElementById('collection-picker-new-form');
 const collectionPickerNewInput = document.getElementById('collection-picker-new-input');
+const collectionPickerAddToggle = document.getElementById('collection-picker-add-toggle');
 
 const linkDrawerOverlay = document.getElementById('link-drawer-overlay');
 const linkDrawerCollage = document.getElementById('link-drawer-collage');
@@ -634,6 +635,7 @@ async function createCollection(name) {
 function openCollectionPicker(link) {
   collectionPickerLink = link;
   renderCollectionPickerList();
+  collectionPickerNewForm.classList.add('hidden');
   collectionPickerOverlay.classList.remove('hidden');
 }
 
@@ -645,12 +647,16 @@ function closeCollectionPicker() {
   collectionPickerLink = null;
 }
 
+const BOOKMARK_ICON_OUTLINE =
+  '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12a1 1 0 0 1 1 1v16l-7-4-7 4V4a1 1 0 0 1 1-1Z"/></svg>';
+const BOOKMARK_ICON_FILLED = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M6 3h12a1 1 0 0 1 1 1v16l-7-4-7 4V4a1 1 0 0 1 1-1Z"/></svg>';
+
 function renderCollectionPickerList() {
   collectionPickerList.innerHTML = '';
   if (!collections.length) {
     const empty = document.createElement('p');
     empty.className = 'muted small';
-    empty.textContent = 'Nenhuma coleção ainda — crie uma abaixo.';
+    empty.textContent = 'Nenhuma coleção ainda — crie uma com "+ Add" acima.';
     collectionPickerList.appendChild(empty);
     return;
   }
@@ -659,7 +665,33 @@ function renderCollectionPickerList() {
     const row = document.createElement('button');
     row.type = 'button';
     row.className = 'collection-picker-item';
-    row.innerHTML = `<span>${escapeHtml(col.name)}</span>${inCollection ? '<span class="collection-picker-check">✓</span>' : ''}`;
+
+    const thumbs = document.createElement('div');
+    thumbs.className = 'collection-picker-thumbs';
+    const thumbLinks = (col.thumbIds || []).slice(0, 2).map((id) => allLinks.find((l) => l.id === id)).filter(Boolean);
+    if (thumbLinks.length) {
+      thumbLinks.forEach((link) => {
+        const tile = document.createElement('div');
+        tile.className = 'collection-picker-thumb';
+        const image = cardImageFor(link);
+        tile.style.background = image ? `url(${image}) center/cover` : placeholderGradient(link.id);
+        thumbs.appendChild(tile);
+      });
+    } else {
+      thumbs.classList.add('collection-picker-thumbs--empty');
+    }
+    row.appendChild(thumbs);
+
+    const info = document.createElement('span');
+    info.className = 'collection-picker-info';
+    info.innerHTML = `<span class="collection-picker-name">${escapeHtml(col.name)}</span><span class="collection-picker-count">${col.linkIds.length} ${col.linkIds.length === 1 ? 'item' : 'itens'}</span>`;
+    row.appendChild(info);
+
+    const bookmark = document.createElement('span');
+    bookmark.className = `collection-picker-bookmark${inCollection ? ' collection-picker-bookmark--active' : ''}`;
+    bookmark.innerHTML = inCollection ? BOOKMARK_ICON_FILLED : BOOKMARK_ICON_OUTLINE;
+    row.appendChild(bookmark);
+
     row.addEventListener('click', () => toggleLinkInCollection(col, collectionPickerLink));
     collectionPickerList.appendChild(row);
   });
@@ -678,6 +710,11 @@ async function toggleLinkInCollection(col, link) {
   if (currentView === 'colecoes' && currentCollectionId) renderRoute();
 }
 
+collectionPickerAddToggle.addEventListener('click', () => {
+  const revealed = collectionPickerNewForm.classList.toggle('hidden') === false;
+  if (revealed) collectionPickerNewInput.focus();
+});
+
 collectionPickerNewForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   const name = collectionPickerNewInput.value.trim();
@@ -687,6 +724,7 @@ collectionPickerNewForm.addEventListener('submit', async (e) => {
     await supabase.from('collection_links').insert({ collection_id: col.id, link_id: collectionPickerLink.id });
     await loadCollections();
     collectionPickerNewInput.value = '';
+    collectionPickerNewForm.classList.add('hidden');
     renderCollectionPickerList();
   }
 });

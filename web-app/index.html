@@ -219,8 +219,12 @@
 
 <div id="collection-picker-overlay" class="collection-picker-overlay hidden">
   <div class="collection-picker" role="dialog" aria-modal="true">
+    <div class="collection-picker-header">
+      <h3>Coleções</h3>
+      <button type="button" id="collection-picker-add-toggle" class="collection-picker-add-toggle">+ Add</button>
+    </div>
     <div id="collection-picker-list" class="collection-picker-list"></div>
-    <form id="collection-picker-new-form" class="collection-picker-new-form">
+    <form id="collection-picker-new-form" class="collection-picker-new-form hidden">
       <input type="text" id="collection-picker-new-input" placeholder="Nova coleção..." autocomplete="off" />
       <button type="submit" class="small-btn">Criar</button>
     </form>
