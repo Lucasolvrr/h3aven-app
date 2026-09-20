@@ -819,10 +819,15 @@ function domainFor(url) {
 // links genéricos, usa o favicon real do domínio (serviço gratuito, sem chave).
 const PLATFORM_ICONS = {
   youtube: '<svg width="16" height="16" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#FF0000"/><path d="M10 8l6 4-6 4V8Z" fill="#fff"/></svg>',
-  music: '<svg width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1DB954"/><path d="M6.5 9.5c3.5-1 8-.6 10.8 1.1M7 13c3-.8 6.5-.5 9 .9M7.5 16.2c2.4-.6 5-.4 7 .7" stroke="#fff" stroke-width="1.4" stroke-linecap="round" fill="none"/></svg>',
+  music: '<svg width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1DB954"/><circle cx="12" cy="12" r="6" fill="#0b3d1f"/><circle cx="12" cy="12" r="1.6" fill="#1DB954"/></svg>',
   tweet: '<svg width="16" height="16" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#000"/><path d="M6 6l12 12M18 6 6 18" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>',
+  movie: '<svg width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#01b4e4"/><path d="M5 10h14v7a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-7Z" fill="#fff"/><path d="M5 10l1.5-3h3L8 10H5Zm5 0 1.5-3h3L13 10h-3Zm5 0 1.5-3H19l-1 3h-3Z" fill="#0d253f"/></svg>',
+  tv: '<svg width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#01b4e4"/><rect x="5" y="7" width="14" height="10" rx="1.5" fill="#fff"/><path d="M9 19h6" stroke="#0d253f" stroke-width="1.5" stroke-linecap="round"/></svg>',
 };
 
+// Mídias adicionadas manualmente (filme/série/música, via busca) não mostram
+// a favicon real do site de origem (TMDB/Spotify) — vira a miniatura de
+// categoria, já que elas não navegam para o site de origem no dia a dia.
 function faviconIconFor(link) {
   const platformIcon = PLATFORM_ICONS[link.content_type];
   if (platformIcon) return platformIcon;
