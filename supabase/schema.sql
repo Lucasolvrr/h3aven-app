@@ -103,3 +103,22 @@ create policy "collection_links: only owner" on collection_links
   );
 
 create index if not exists collections_user_id_idx on collections(user_id);
+
+-- Migração: Tags e Coleções viram o mesmo conceito — "marcar" um item
+-- agora é adicioná-lo a uma coleção. Tags existentes são migradas (cada
+-- tag vira uma coleção com o mesmo nome, preservando os vínculos); as
+-- tabelas tags/link_tags NÃO são apagadas (não-destrutivo — ficam sem uso
+-- depois desta migração, dá pra dropar depois se quiser).
+alter table collection_links add column if not exists created_at timestamptz not null default now();
+
+insert into collections (user_id, name)
+select distinct t.user_id, t.name
+from tags t
+on conflict (user_id, name) do nothing;
+
+insert into collection_links (collection_id, link_id)
+select c.id, lt.link_id
+from link_tags lt
+join tags t on t.id = lt.tag_id
+join collections c on c.user_id = t.user_id and c.name = t.name
+on conflict (collection_id, link_id) do nothing;

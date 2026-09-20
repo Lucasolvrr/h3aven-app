@@ -279,7 +279,7 @@ logoutBtn.addEventListener('click', async () => {
 async function loadLinks() {
   const { data, error } = await supabase
     .from('links')
-    .select('id, url, title, description, source, content_type, metadata, fetch_status, notes, created_at, link_tags(tags(id, name))')
+    .select('id, url, title, description, source, content_type, metadata, fetch_status, notes, created_at')
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -669,8 +669,6 @@ function openQuickview(link) {
   const description = cardDescriptionFor(link);
   quickviewDescription.textContent = description || 'Sem resumo disponível.';
 
-  renderQuickviewTags(link);
-
   quickviewNotes.value = link.notes || '';
 
   quickviewOverlay.classList.remove('hidden');
@@ -680,49 +678,6 @@ function closeQuickview() {
   quickviewOverlay.classList.add('hidden');
   currentQuickviewLink = null;
 }
-
-function renderQuickviewTags(link) {
-  quickviewTags.innerHTML = '';
-  link.link_tags.forEach((lt) => {
-    const chip = document.createElement('span');
-    chip.className = 'tag-chip';
-    const label = document.createElement('span');
-    label.textContent = `#${lt.tags.name}`;
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.textContent = '×';
-    removeBtn.addEventListener('click', () => removeQuickviewTag(link, lt.tags.id));
-    chip.append(label, removeBtn);
-    quickviewTags.appendChild(chip);
-  });
-}
-
-async function removeQuickviewTag(link, tagId) {
-  await supabase.from('link_tags').delete().eq('link_id', link.id).eq('tag_id', tagId);
-  link.link_tags = link.link_tags.filter((lt) => lt.tags.id !== tagId);
-  renderQuickviewTags(link);
-  loadLinks();
-}
-
-quickviewAddTagForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const name = quickviewTagInput.value.trim().replace(/^#/, '');
-  if (!name || !currentQuickviewLink) return;
-  await attachTags(currentQuickviewLink.id, [name]);
-  quickviewTagInput.value = '';
-
-  const { data: tagRow } = await supabase
-    .from('tags')
-    .select('id, name')
-    .eq('user_id', currentSession.user.id)
-    .eq('name', name)
-    .single();
-  if (tagRow && !currentQuickviewLink.link_tags.some((lt) => lt.tags.id === tagRow.id)) {
-    currentQuickviewLink.link_tags.push({ tags: tagRow });
-  }
-  renderQuickviewTags(currentQuickviewLink);
-  loadLinks();
-});
 
 quickviewNotes.addEventListener('blur', async () => {
   if (!currentQuickviewLink) return;
@@ -820,7 +775,7 @@ homePills.addEventListener('click', (e) => {
 // --- Core: salvar / tags / enriquecimento / excluir (reaproveitados pelos
 // fluxos do menu "Criar" e pela extensão indiretamente via mesma tabela) ---
 
-async function saveLink({ url, title, tagNames, contentType }) {
+async function saveLink({ url, title, collectionNames, contentType }) {
   const source = detectSource(url);
   const needsEnrichment = NEEDS_ENRICHMENT.has(contentType);
 
@@ -841,7 +796,7 @@ async function saveLink({ url, title, tagNames, contentType }) {
     return null;
   }
 
-  await attachTags(linkRow.id, tagNames);
+  await attachToCollections(linkRow.id, collectionNames);
   loadLinks();
 
   if (needsEnrichment) {
@@ -852,20 +807,17 @@ async function saveLink({ url, title, tagNames, contentType }) {
   return linkRow;
 }
 
-async function attachTags(linkId, tagNames) {
-  for (const name of tagNames) {
-    const { data: tagRow, error: tagError } = await supabase
-      .from('tags')
-      .upsert({ user_id: currentSession.user.id, name }, { onConflict: 'user_id,name' })
-      .select()
-      .single();
-
-    if (tagError) {
-      console.error(tagError);
-      continue;
+async function attachToCollections(linkId, names) {
+  for (const name of names) {
+    let col = collections.find((c) => c.name === name);
+    if (!col) {
+      const created = await createCollection(name);
+      if (!created) continue;
+      col = collections.find((c) => c.id === created.id);
+      if (!col) continue;
     }
-
-    await supabase.from('link_tags').insert({ link_id: linkId, tag_id: tagRow.id });
+    await supabase.from('collection_links').insert({ collection_id: col.id, link_id: linkId });
+    col.linkIds.push(linkId);
   }
 }
 
@@ -935,9 +887,9 @@ const CREATE_MODAL_TEMPLATES = {
   `,
   import: () => `
     <h2>Importar lista</h2>
-    <p class="muted small">Cole uma linha por item, direto de uma planilha: URL e, se quiser, as tags na coluna ao lado (uma célula com tags separadas por vírgula). Linhas só com URL também funcionam.</p>
+    <p class="muted small">Cole uma linha por item, direto de uma planilha: URL e, se quiser, as coleções na coluna ao lado (uma célula com nomes separados por vírgula). Linhas só com URL também funcionam.</p>
     <form id="cm-import-form" class="cm-form">
-      <textarea id="cm-import-textarea" rows="8" placeholder="https://exemplo.com/1&#9;tag1, tag2&#10;https://exemplo.com/2"></textarea>
+      <textarea id="cm-import-textarea" rows="8" placeholder="https://exemplo.com/1&#9;coleção1, coleção2&#10;https://exemplo.com/2"></textarea>
       <button type="submit">Importar</button>
     </form>
     <p id="cm-import-status" class="muted small"></p>
@@ -1018,9 +970,9 @@ const CREATE_MODAL_INIT = {
       e.preventDefault();
       const url = document.getElementById('cm-music-url').value.trim();
       const tagsRaw = document.getElementById('cm-music-tags').value.trim();
-      const tagNames = tagsRaw ? tagsRaw.split(',').map((t) => t.trim().replace(/^#/, '')).filter(Boolean) : [];
+      const collectionNames = tagsRaw ? tagsRaw.split(',').map((t) => t.trim().replace(/^#/, '')).filter(Boolean) : [];
       status.textContent = 'Salvando...';
-      const row = await saveLink({ url, title: '', tagNames, contentType: 'music' });
+      const row = await saveLink({ url, title: '', collectionNames, contentType: 'music' });
       if (row) {
         closeCreateModal();
       } else {
@@ -1042,10 +994,10 @@ const CREATE_MODAL_INIT = {
 
       await Promise.all(
         lines.map(async (line) => {
-          const [urlPart, tagsPart] = line.includes('\t') ? line.split('\t') : [line, ''];
+          const [urlPart, collectionsPart] = line.includes('\t') ? line.split('\t') : [line, ''];
           const url = urlPart.trim();
-          const tagNames = tagsPart
-            ? tagsPart.split(',').map((t) => t.trim().replace(/^#/, '')).filter(Boolean)
+          const collectionNames = collectionsPart
+            ? collectionsPart.split(',').map((t) => t.trim().replace(/^#/, '')).filter(Boolean)
             : [];
           try {
             new URL(url);
@@ -1053,7 +1005,7 @@ const CREATE_MODAL_INIT = {
             done++;
             return;
           }
-          await saveLink({ url, title: '', tagNames, contentType: detectContentType(url) });
+          await saveLink({ url, title: '', collectionNames, contentType: detectContentType(url) });
           done++;
           status.textContent = `Importando ${done}/${lines.length}...`;
         })
