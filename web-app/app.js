@@ -55,6 +55,7 @@ const createModalBody = document.getElementById('create-modal-body');
 const collectionsGrid = document.getElementById('collections-grid');
 const collectionsRow = document.getElementById('collections-row');
 const collectionBackBar = document.getElementById('collection-back-bar');
+const bibliotecaTabs = document.getElementById('biblioteca-tabs');
 const collectionBackBtn = document.getElementById('collection-back-btn');
 const collectionViewTitle = document.getElementById('collection-view-title');
 const collectionPickerOverlay = document.getElementById('collection-picker-overlay');
@@ -95,11 +96,15 @@ let currentView = 'home';
 let currentCollectionId = null;
 let currentDrawerLink = null;
 let collectionPickerLink = null;
+let currentBibliotecaTab = '';
 
 const MEDIA_TYPES = ['movie', 'tv', 'music'];
 const VIEWS = {
   home: { filter: (l) => !MEDIA_TYPES.includes(l.content_type), layout: 'masonry' },
-  biblioteca: { filter: (l) => MEDIA_TYPES.includes(l.content_type), layout: 'grid' },
+  biblioteca: {
+    filter: (l) => MEDIA_TYPES.includes(l.content_type) && (!currentBibliotecaTab || l.content_type === currentBibliotecaTab),
+    layout: 'grid',
+  },
   colecoes: { filter: null, layout: 'grid' },
 };
 const ROUTES = { '': 'home', biblioteca: 'biblioteca', colecoes: 'colecoes' };
@@ -216,6 +221,7 @@ function renderRoute() {
   });
   collectionsRow.classList.toggle('hidden', currentView !== 'home');
   if (currentView === 'home') renderCollectionsRow();
+  bibliotecaTabs.classList.toggle('hidden', currentView !== 'biblioteca');
 
   const showingCollectionsList = currentView === 'colecoes' && !currentCollectionId;
   collectionsGrid.classList.toggle('hidden', !showingCollectionsList);
@@ -484,6 +490,8 @@ function placeholderGradient(seed) {
 }
 
 function buildCard(link) {
+  if (link.content_type === 'music') return buildAlbumCard(link);
+
   const li = document.createElement('li');
   li.className = `card card--${link.content_type || 'link'}`;
   if (link.fetch_status === 'pending') li.classList.add('is-pending');
@@ -530,7 +538,7 @@ function buildCard(link) {
 
   const favicon = document.createElement('div');
   favicon.className = 'card-favicon-badge';
-  favicon.innerHTML = `${faviconIconFor(link)}<span class="card-favicon-domain">${escapeHtml(domainFor(link.url))}</span>`;
+  favicon.innerHTML = faviconIconFor(link);
   media.appendChild(favicon);
 
   const title = document.createElement('span');
@@ -539,6 +547,77 @@ function buildCard(link) {
   media.appendChild(title);
 
   li.appendChild(media);
+
+  li.addEventListener('click', () => openDrawer(link));
+  li.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      openDrawer(link);
+    }
+  });
+
+  return li;
+}
+
+// Card de álbum/faixa (Ref: "untitled" — capa quadrada com play sempre
+// visível, título abaixo e uma linha de fonte + menu, diferente do card
+// genérico com hover-reveal usado pros outros tipos de conteúdo.
+function buildAlbumCard(link) {
+  const li = document.createElement('li');
+  li.className = 'card card--music album-card';
+  li.setAttribute('role', 'button');
+  li.tabIndex = 0;
+
+  const media = document.createElement('div');
+  media.className = 'album-card-media';
+  const image = cardImageFor(link);
+  if (image) {
+    const img = document.createElement('img');
+    img.src = image;
+    img.loading = 'lazy';
+    img.alt = '';
+    media.appendChild(img);
+  } else {
+    media.style.background = placeholderGradient(link.id);
+  }
+
+  const playBtn = document.createElement('button');
+  playBtn.type = 'button';
+  playBtn.className = 'album-play-btn';
+  playBtn.setAttribute('aria-label', 'Abrir faixa');
+  playBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+  playBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    window.open(link.url, '_blank', 'noopener');
+  });
+  media.appendChild(playBtn);
+  li.appendChild(media);
+
+  const info = document.createElement('div');
+  info.className = 'album-card-info';
+
+  const title = document.createElement('h3');
+  title.className = 'album-card-title';
+  title.textContent = cardTitleFor(link);
+  info.appendChild(title);
+
+  const meta = document.createElement('div');
+  meta.className = 'album-card-meta';
+  const artist = (link.metadata || {}).artist || domainFor(link.url);
+  meta.innerHTML = `<span class="album-card-source">${PLATFORM_ICONS.music}</span><span class="album-card-artist">${escapeHtml(artist || '')}</span>`;
+
+  const menuBtn = document.createElement('button');
+  menuBtn.type = 'button';
+  menuBtn.className = 'album-card-menu';
+  menuBtn.setAttribute('aria-label', 'Salvar em coleção');
+  menuBtn.textContent = '⋯';
+  menuBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    openCollectionPicker(link, e);
+  });
+  meta.appendChild(menuBtn);
+  info.appendChild(meta);
+  li.appendChild(info);
 
   li.addEventListener('click', () => openDrawer(link));
   li.addEventListener('keydown', (e) => {
@@ -669,6 +748,14 @@ function initCollectionBackBtn() {
   });
 }
 
+bibliotecaTabs.addEventListener('click', (e) => {
+  const btn = e.target.closest('.biblioteca-tab');
+  if (!btn || btn.disabled) return;
+  currentBibliotecaTab = btn.dataset.tab;
+  [...bibliotecaTabs.querySelectorAll('.biblioteca-tab')].forEach((b) => b.classList.toggle('active', b === btn));
+  renderLinks(allLinks);
+});
+
 function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str;
@@ -753,9 +840,12 @@ function renderCollectionPickerList() {
     row.type = 'button';
     row.className = 'collection-picker-item';
 
+    const left = document.createElement('span');
+    left.className = 'collection-picker-item-left';
+
     const thumbs = document.createElement('div');
     thumbs.className = 'collection-picker-thumbs';
-    const thumbLinks = (col.thumbIds || []).slice(0, 2).map((id) => allLinks.find((l) => l.id === id)).filter(Boolean);
+    const thumbLinks = (col.thumbIds || []).slice(0, 3).map((id) => allLinks.find((l) => l.id === id)).filter(Boolean);
     if (thumbLinks.length) {
       thumbLinks.forEach((link) => {
         const tile = document.createElement('div');
@@ -767,12 +857,12 @@ function renderCollectionPickerList() {
     } else {
       thumbs.classList.add('collection-picker-thumbs--empty');
     }
-    row.appendChild(thumbs);
+    left.appendChild(thumbs);
 
     const info = document.createElement('span');
-    info.className = 'collection-picker-info';
-    info.innerHTML = `<span class="collection-picker-name">${escapeHtml(col.name)}</span><span class="collection-picker-count">${col.linkIds.length} ${col.linkIds.length === 1 ? 'item' : 'itens'}</span>`;
-    row.appendChild(info);
+    info.innerHTML = `<span class="collection-picker-name">${escapeHtml(col.name)}</span><span class="collection-picker-count">${col.linkIds.length}</span>`;
+    left.appendChild(info);
+    row.appendChild(left);
 
     const bookmark = document.createElement('span');
     bookmark.className = `collection-picker-bookmark${inCollection ? ' collection-picker-bookmark--active' : ''}`;

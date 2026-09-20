@@ -185,6 +185,14 @@
       <h2 id="collection-view-title"></h2>
     </div>
 
+    <div id="biblioteca-tabs" class="biblioteca-tabs hidden">
+      <button type="button" class="biblioteca-tab active" data-tab="">Tudo</button>
+      <button type="button" class="biblioteca-tab" data-tab="movie">Filmes</button>
+      <button type="button" class="biblioteca-tab" data-tab="tv">Séries</button>
+      <button type="button" class="biblioteca-tab" data-tab="music">Músicas</button>
+      <button type="button" class="biblioteca-tab" data-tab="book" disabled>Livros <small>em breve</small></button>
+    </div>
+
     <ul id="link-list" class="library-grid layout-masonry"></ul>
     <p id="empty-state" class="muted hidden">Nenhum item salvo ainda.</p>
   </main>
@@ -226,9 +234,12 @@
 
 <div id="collection-picker-overlay" class="collection-picker-overlay hidden">
   <div class="collection-picker" role="dialog" aria-modal="true">
+    <div class="collection-picker-title-row">
+      <h2>Coleções</h2>
+    </div>
     <div class="collection-picker-header">
-      <h3>Coleções</h3>
-      <button type="button" id="collection-picker-add-toggle" class="collection-picker-add-toggle">+ Add</button>
+      <span class="collection-picker-label">Coleções</span>
+      <button type="button" id="collection-picker-add-toggle" class="collection-picker-add-toggle">+ Adicionar</button>
     </div>
     <div id="collection-picker-list" class="collection-picker-list"></div>
     <form id="collection-picker-new-form" class="collection-picker-new-form hidden">
