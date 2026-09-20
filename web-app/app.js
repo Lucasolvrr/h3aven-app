@@ -38,6 +38,7 @@ const createModalClose = document.getElementById('create-modal-close');
 const createModalBody = document.getElementById('create-modal-body');
 
 const collectionsGrid = document.getElementById('collections-grid');
+const collectionsRow = document.getElementById('collections-row');
 const collectionBackBar = document.getElementById('collection-back-bar');
 const collectionBackBtn = document.getElementById('collection-back-btn');
 const collectionViewTitle = document.getElementById('collection-view-title');
@@ -225,6 +226,8 @@ function renderRoute() {
   });
   hero.classList.toggle('hidden', currentView !== 'home');
   homePills.classList.toggle('hidden', currentView !== 'home');
+  collectionsRow.classList.toggle('hidden', currentView !== 'home');
+  if (currentView === 'home') renderCollectionsRow();
 
   const showingCollectionsList = currentView === 'colecoes' && !currentCollectionId;
   collectionsGrid.classList.toggle('hidden', !showingCollectionsList);
@@ -494,7 +497,7 @@ function buildCard(link) {
 async function loadCollections() {
   const { data, error } = await supabase
     .from('collections')
-    .select('id, name, created_at, collection_links(link_id)')
+    .select('id, name, created_at, collection_links(link_id, created_at)')
     .order('created_at', { ascending: false });
 
   if (error) {
@@ -502,8 +505,17 @@ async function loadCollections() {
     return;
   }
 
-  collections = data.map((c) => ({ id: c.id, name: c.name, linkIds: c.collection_links.map((cl) => cl.link_id) }));
+  collections = data.map((c) => {
+    const sorted = [...c.collection_links].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    return {
+      id: c.id,
+      name: c.name,
+      linkIds: c.collection_links.map((cl) => cl.link_id),
+      thumbIds: sorted.slice(0, 3).map((cl) => cl.link_id),
+    };
+  });
   if (currentView === 'colecoes') renderRoute();
+  if (currentView === 'home') renderCollectionsRow();
 }
 
 function renderCollectionsGrid() {
@@ -534,6 +546,62 @@ function renderCollectionsGrid() {
   `;
   newCard.addEventListener('click', () => openCreateModal('collection'));
   collectionsGrid.appendChild(newCard);
+}
+
+const COLLECTION_STACK_ROTATIONS = [-6, 4, -2];
+const COLLECTION_STACK_SPREAD = [
+  { x: '-14px', y: '-6px' },
+  { x: '0px', y: '8px' },
+  { x: '14px', y: '-4px' },
+];
+
+function renderCollectionsRow() {
+  collectionsRow.innerHTML = '';
+
+  collections.forEach((col) => {
+    const card = document.createElement('a');
+    card.href = `#/colecoes/${col.id}`;
+    card.className = 'collection-row-card';
+
+    const stack = document.createElement('div');
+    stack.className = 'collection-stack';
+    const thumbs = col.thumbIds.map((id) => allLinks.find((l) => l.id === id)).filter(Boolean);
+    if (thumbs.length) {
+      thumbs.forEach((link, i) => {
+        const tile = document.createElement('div');
+        tile.className = 'collection-stack-tile';
+        tile.style.setProperty('--rot', `${COLLECTION_STACK_ROTATIONS[i] ?? 0}deg`);
+        tile.style.setProperty('--spread-x', `${COLLECTION_STACK_SPREAD[i]?.x ?? '0px'}`);
+        tile.style.setProperty('--spread-y', `${COLLECTION_STACK_SPREAD[i]?.y ?? '0px'}`);
+        tile.style.zIndex = String(thumbs.length - i);
+        const image = cardImageFor(link);
+        if (image) tile.style.backgroundImage = `url(${image})`;
+        else tile.style.background = placeholderGradient(link.id);
+        stack.appendChild(tile);
+      });
+    } else {
+      stack.innerHTML =
+        '<div class="collection-stack-empty"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></div>';
+    }
+    card.appendChild(stack);
+
+    const info = document.createElement('div');
+    info.className = 'collection-row-info';
+    info.innerHTML = `<p class="collection-row-name">${escapeHtml(col.name)}</p><p class="collection-row-count">${col.linkIds.length} ${col.linkIds.length === 1 ? 'item' : 'itens'}</p>`;
+    card.appendChild(info);
+
+    collectionsRow.appendChild(card);
+  });
+
+  const newCard = document.createElement('button');
+  newCard.type = 'button';
+  newCard.className = 'collection-row-card collection-row-card--new';
+  newCard.innerHTML = `
+    <div class="collection-row-add"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></div>
+    <p class="collection-row-name">Criar coleção</p>
+  `;
+  newCard.addEventListener('click', () => openCreateModal('collection'));
+  collectionsRow.appendChild(newCard);
 }
 
 function initCollectionBackBtn() {

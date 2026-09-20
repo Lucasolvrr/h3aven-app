@@ -502,7 +502,79 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
 
 #search-input { flex: 1; }
 
-/* Coleções */
+/* Coleções — resumo na Home: pilha de 3 fotos que se abre no hover */
+.collections-row {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 0 0 8px;
+  margin: 32px 0 0;
+}
+.collection-row-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 228px;
+  padding: 28px 24px 24px;
+  background: var(--surface-2);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: var(--radius-tiles);
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color 200ms ease;
+}
+.collection-row-card:hover { background: #2c2d32; }
+.collection-stack { position: relative; width: 180px; height: 150px; flex-shrink: 0; }
+.collection-stack-tile {
+  position: absolute;
+  left: 30px;
+  top: 15px;
+  width: 115px;
+  height: 115px;
+  border-radius: 10px;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--surface-1);
+  border: 1.5px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+  transform: rotate(var(--rot, 0deg));
+  transition: transform 250ms ease;
+}
+.collection-row-card:hover .collection-stack-tile {
+  transform: rotate(var(--rot, 0deg)) translate(var(--spread-x, 0px), var(--spread-y, 0px));
+}
+.collection-stack-empty {
+  width: 56px;
+  height: 56px;
+  margin: 47px auto;
+  border-radius: 9999px;
+  background: var(--surface-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+}
+.collection-row-info { width: 100%; padding-top: 20px; text-align: left; }
+.collection-row-name { margin: 0 0 6px; font-size: 16px; font-weight: 500; color: var(--ink); }
+.collection-row-count { margin: 0; font-size: 13px; color: var(--text-tertiary); }
+.collection-row-card--new { border-style: dashed; justify-content: center; background: transparent; }
+.collection-row-card--new:hover { background: var(--surface-1); }
+.collection-row-add {
+  width: 56px;
+  height: 56px;
+  border-radius: 9999px;
+  background: var(--surface-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+.collection-row-card--new .collection-row-info,
+.collection-row-card--new .collection-row-name { text-align: center; }
+
 .collections-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
