@@ -220,7 +220,7 @@ function renderRoute() {
   currentCollectionId = collectionMatch ? collectionMatch[1] : null;
   currentView = collectionMatch ? 'colecoes' : ROUTES[hash] ?? 'home';
 
-  document.querySelectorAll('.nav-link').forEach((a) => {
+  document.querySelectorAll('.pill-nav-link').forEach((a) => {
     a.classList.toggle('active', a.dataset.view === currentView);
   });
   hero.classList.toggle('hidden', currentView !== 'home');
