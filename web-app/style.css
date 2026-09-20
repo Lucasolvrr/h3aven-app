@@ -64,7 +64,7 @@ h1 {
 #app-view.screen {
   max-width: 1920px;
   margin: 0 auto;
-  padding: 0 64px 80px;
+  padding: 0 16px 80px;
 }
 
 /* Login */
@@ -187,55 +187,20 @@ button.ghost {
 }
 button.small-btn { padding: 6px 10px; font-size: 13px; }
 
-/* Header — full-bleed bar pinned to the very top (Figma node 1500:2107).
-   It has no solid fill of its own: a progressive gradient tint (opaque near
-   the top edge, fully transparent by its own bottom edge) plus a
-   progressive blur — several stacked layers, each blurred by a different
-   amount and masked to a different band, since a single backdrop-filter
-   can't vary in strength across an element. The combined effect reads as
-   heavy frosted glass right under the nav, fading to fully clear glass by
-   the time the header meets the page content. */
-.app-main { padding-top: 128px; }
+/* Header — full-bleed bar pinned to the very top (Figma node 28:394).
+   No fill, no blur (per Figma spec: backdrop-blur is 0). It is
+   pointer-events:none as a whole — only its actual buttons/links re-enable
+   pointer-events — so its transparent middle lets clicks pass through to
+   .pill-nav underneath, which sits in normal document flow, not fixed, and
+   scrolls away with the page (only the header itself stays put). */
+.app-main { padding-top: 0; }
 .app-header {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  height: 128px;
+  height: 152px;
   z-index: 60;
-}
-.app-header-blur { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-.app-header-blur i { position: absolute; inset: 0; display: block; font-style: normal; }
-.app-header-blur i:nth-child(1) {
-  backdrop-filter: blur(2px);
-  -webkit-backdrop-filter: blur(2px);
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 70%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 45%, transparent 70%);
-}
-.app-header-blur i:nth-child(2) {
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 30%, transparent 55%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 30%, transparent 55%);
-}
-.app-header-blur i:nth-child(3) {
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 16%, transparent 36%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 16%, transparent 36%);
-}
-.app-header-blur i:nth-child(4) {
-  backdrop-filter: blur(28px);
-  -webkit-backdrop-filter: blur(28px);
-  -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 8%, transparent 20%);
-  mask-image: linear-gradient(to bottom, #000 0%, #000 8%, transparent 20%);
-}
-.app-header-tint {
-  position: absolute;
-  inset: 0;
-  /* Never fades all the way to 0 — a thin 8% floor keeps the header legible
-     over busy thumbnails once content scrolls up underneath it. */
-  background: linear-gradient(to bottom, rgba(20, 20, 20, 0.8) 0%, rgba(20, 20, 20, 0.08) 92%);
   pointer-events: none;
 }
 .app-header-content {
@@ -248,9 +213,9 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding: 0 64px;
+  padding: 0 48px;
 }
-.app-header-left { display: flex; align-items: center; gap: 32px; flex-shrink: 0; }
+.app-header-left { display: flex; align-items: center; gap: 32px; flex-shrink: 0; pointer-events: auto; }
 .app-header-brand { display: flex; align-items: center; flex-shrink: 0; }
 .app-header-brand img { width: 48px; height: 48px; border-radius: 14px; display: block; }
 
@@ -270,18 +235,17 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
 .header-search-btn:hover { opacity: 1; color: var(--ink); }
 .header-search-btn svg { flex-shrink: 0; }
 
-/* Floating pill nav — sits below the header, stays fixed through scroll so
-   the tabs are always reachable ("trocar de aba a qualquer momento"). The
-   background approximates Apple's liquid glass: layered blur+saturate plus
-   an SVG feTurbulence/feDisplacementMap filter (defined in index.html) for
-   a soft warp of whatever shows through — an approximation, not the real
-   native effect. */
+/* Pill nav — normal document flow (scrolls away with the page), positioned
+   with margins so it visually lines up at the same height as the rest of
+   the header (Figma y:56) only while at the top of the page. The background
+   approximates Apple's liquid glass: layered blur+saturate plus an SVG
+   feTurbulence/feDisplacementMap filter (defined in index.html) for a soft
+   warp of whatever shows through — an approximation, not the real native
+   effect. */
 .pill-nav {
-  position: fixed;
-  top: 152px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 59;
+  position: relative;
+  width: fit-content;
+  margin: 56px auto 74px;
   display: flex;
   align-items: center;
   padding: 4px;
@@ -306,11 +270,11 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
   white-space: nowrap;
   transition: background-color 150ms ease, color 150ms ease;
 }
-.pill-nav-link svg { flex-shrink: 0; }
+.pill-nav-link svg { flex-shrink: 0; width: 24px; height: 24px; }
 .pill-nav-link:hover { color: var(--ink); }
 .pill-nav-link.active { background: rgba(255, 255, 255, 0.15); color: var(--ink); }
 
-.header-actions { display: flex; align-items: center; gap: 24px; flex-shrink: 0; }
+.header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; pointer-events: auto; }
 
 /* Botão "Criar" */
 .create-wrap { position: relative; }
@@ -372,89 +336,6 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
 .create-menu-text { display: flex; flex-direction: column; gap: 2px; }
 .create-menu-text strong { font-size: 14px; font-weight: 500; }
 .create-menu-text small { font-size: 12px; color: var(--muted); }
-
-/* Hero search bar (Home only) — Figma node 1350:9762 */
-.hero-search-bar {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  max-width: 839px;
-  height: 72px;
-  background: #2c2f3a;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 9999px;
-  padding: 16px 16px 16px 32px;
-}
-.hero-search-bar input {
-  flex: 1;
-  min-width: 0;
-  border: none;
-  background: transparent;
-  color: #c3c3c3;
-  font-family: var(--font-body);
-  font-size: 20px;
-  padding: 0;
-}
-.hero-search-bar input:focus { outline: none; }
-.hero-search-bar button {
-  flex-shrink: 0;
-  height: 48px;
-  background: #ffffff;
-  color: #181a20;
-  font-family: var(--font-body);
-  font-weight: 500;
-  font-size: 18px;
-  padding: 0 32px;
-  border-radius: 9999px;
-}
-.search-suggestions {
-  position: absolute;
-  top: calc(100% + 8px);
-  left: 0;
-  right: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 6px;
-  background: rgba(26, 26, 26, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-panel);
-}
-.search-suggestion {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 6px 8px;
-  border-radius: var(--radius-tiles);
-  color: var(--text-secondary);
-  text-decoration: none;
-  font-size: 13px;
-  cursor: pointer;
-  background: none;
-  border: none;
-  text-align: left;
-  width: 100%;
-  font-family: inherit;
-}
-.search-suggestion:hover { background: var(--surface-2); color: var(--ink); }
-.search-suggestion img {
-  width: 28px;
-  height: 28px;
-  object-fit: cover;
-  border-radius: var(--radius-tiles);
-  background: var(--surface-2);
-  flex-shrink: 0;
-}
-.search-suggestion span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 
 .avatar-wrap { position: relative; flex-shrink: 0; }
 .avatar-btn {
@@ -527,68 +408,6 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
 
 .app-main { display: block; }
 
-/* Hero — matches Figma "Home exemplo" (node 1350:9756) exactly; full-bleed
-   breakout from the centered #app-view container, video substituted for the
-   reference's static image since the brief calls for a looping video. */
-.hero {
-  position: relative;
-  width: 100vw;
-  margin-left: calc(-50vw + 50%);
-  margin-top: -128px;
-  aspect-ratio: 1920 / 620;
-  min-height: 820px;
-  overflow: hidden;
-  margin-bottom: 32px;
-}
-.hero-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.hero-overlay {
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(90deg, rgba(20, 20, 20, 0) 49.34%, rgba(20, 20, 20, 1) 100%),
-    linear-gradient(270deg, rgba(20, 20, 20, 0) 50.32%, rgba(20, 20, 20, 1) 100%),
-    linear-gradient(0deg, rgba(20, 20, 20, 1) 7.15%, rgba(20, 20, 20, 0.75) 70%, rgba(20, 20, 20, 1) 100%);
-  background-size: 100% 100%, 100% 100%, 100% 100%;
-}
-.hero-content {
-  position: relative;
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 40px;
-  padding: 280px 24px 64px;
-  text-align: center;
-}
-.hero-greeting {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 72px;
-  font-weight: 400;
-  line-height: 1;
-  color: var(--ink);
-  max-width: 629px;
-  background: linear-gradient(to right, #ffffff 50%, #9ac9ff 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-}
-.hero-pills { gap: 8px; margin-bottom: 0; justify-content: center; max-width: 654px; }
-.hero-pills .filter-pill {
-  height: 40px;
-  padding: 0 24px;
-  background: #323644;
-  border-color: rgba(255, 255, 255, 0.05);
-  color: #c3c3c3;
-  font-family: var(--font-body);
-  font-size: 16px;
-}
-.hero-pills .filter-pill.active {
-  font-weight: 700;
-  color: #fff;
-  border-color: #ccccff;
-}
 
 #search-input { flex: 1; }
 
@@ -649,13 +468,18 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
 .collection-row-info { width: 100%; padding-top: 20px; text-align: left; }
 .collection-row-name { margin: 0 0 6px; font-size: 16px; font-weight: 500; color: var(--ink); }
 .collection-row-count { margin: 0; font-size: 13px; color: var(--text-tertiary); }
-.collection-row-card--new { border-style: dashed; justify-content: center; background: transparent; }
+.collection-row-card--new {
+  border-style: dashed;
+  border-color: rgba(229, 231, 235, 0.25);
+  justify-content: center;
+  background: transparent;
+}
 .collection-row-card--new:hover { background: var(--surface-1); }
 .collection-row-add {
   width: 56px;
   height: 56px;
   border-radius: 9999px;
-  background: var(--surface-1);
+  background: var(--surface-2);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -715,21 +539,6 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
 .collection-back-bar h2 { font-size: 18px; font-weight: 500; margin: 0; font-family: var(--font-display); }
 
 /* Type picker / filter pills */
-.type-picker { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
-.type-pill, .filter-pill {
-  background: transparent;
-  color: var(--muted);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
-  padding: 5px 12px;
-  font-size: 13px;
-}
-.type-pill.active, .filter-pill.active {
-  background: var(--surface-2);
-  color: var(--ink);
-  border-color: var(--surface-2);
-}
-
 .token-row {
   display: flex;
   align-items: center;
@@ -1533,15 +1342,12 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
 
 /* Mobile */
 @media (max-width: 720px) {
-  #app-view.screen { padding: 0 16px 80px; }
-  .app-main { padding-top: 88px; }
   .app-header { height: 88px; }
-  .hero { margin-top: -88px; aspect-ratio: 1 / 1.3; min-height: 560px; }
   .app-header-content { padding: 0 16px; gap: 8px; }
   .app-header-left { gap: 12px; }
   .app-header-brand img { width: 32px; height: 32px; border-radius: 9px; }
   .header-search-btn span { display: none; }
-  .pill-nav { top: 104px; padding: 3px; }
+  .pill-nav { margin: 24px auto 32px; padding: 3px; }
   .pill-nav-link { height: 38px; padding: 0 14px; font-size: 13px; gap: 4px; }
   .pill-nav-link svg { width: 18px; height: 18px; }
   .header-actions { gap: 6px; }
@@ -1550,10 +1356,6 @@ button.small-btn { padding: 6px 10px; font-size: 13px; }
   .avatar-btn { height: 36px; padding: 3px 6px 3px 3px; gap: 4px; }
   .avatar-circle { width: 30px; height: 30px; font-size: 12px; }
   .avatar-chevron { display: none; }
-  .hero-content { gap: 32px; padding: 130px 20px 48px; }
-  .hero-greeting { font-size: 32px; }
-  .hero-search-bar { height: auto; padding: 8px 8px 8px 20px; }
-  .hero-search-bar button { padding: 10px 16px; height: 40px; }
   #login-view.screen { padding: 16px; }
   .auth-panel { grid-template-columns: 1fr; min-height: 0; }
   .auth-art-col { display: none; }

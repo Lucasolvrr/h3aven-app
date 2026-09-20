@@ -24,14 +24,9 @@ const recoveryForm = document.getElementById('recovery-form');
 const recoveryStatus = document.getElementById('recovery-status');
 const userEmailEl = document.getElementById('user-email');
 const logoutBtn = document.getElementById('logout-btn');
-const searchInput = document.getElementById('search-input');
 const linkList = document.getElementById('link-list');
 const emptyState = document.getElementById('empty-state');
 
-const homePills = document.getElementById('home-pills');
-const searchSuggestions = document.getElementById('search-suggestions');
-const hero = document.getElementById('hero');
-const heroGreeting = document.getElementById('hero-greeting');
 const avatarBtn = document.getElementById('avatar-btn');
 const avatarInitial = document.getElementById('avatar-initial');
 const avatarMenu = document.getElementById('avatar-menu');
@@ -94,15 +89,15 @@ const PROGRESS_GOAL = 5;
 let currentSession = null;
 let allLinks = [];
 let collections = [];
-let homeFilter = '';
 let currentView = 'home';
 let currentCollectionId = null;
 let currentDrawerLink = null;
 let collectionPickerLink = null;
 
+const MEDIA_TYPES = ['movie', 'tv', 'music'];
 const VIEWS = {
-  home: { filter: null, layout: 'masonry' },
-  biblioteca: { filter: (l) => ['movie', 'tv', 'music'].includes(l.content_type), layout: 'grid' },
+  home: { filter: (l) => !MEDIA_TYPES.includes(l.content_type), layout: 'masonry' },
+  biblioteca: { filter: (l) => MEDIA_TYPES.includes(l.content_type), layout: 'grid' },
   colecoes: { filter: null, layout: 'grid' },
 };
 const ROUTES = { '': 'home', biblioteca: 'biblioteca', colecoes: 'colecoes' };
@@ -155,7 +150,6 @@ async function init() {
     openCreateModal(item.dataset.action);
   });
 
-  initScrollBlur();
   initThemeToggle();
   initDensityToggle();
   initCollectionBackBtn();
@@ -173,28 +167,6 @@ async function init() {
   });
 
   window.addEventListener('hashchange', renderRoute);
-}
-
-function initScrollBlur() {
-  let lastY = window.scrollY;
-  let resetTimer;
-  window.addEventListener(
-    'scroll',
-    () => {
-      const y = window.scrollY;
-      const delta = Math.abs(y - lastY);
-      lastY = y;
-      const blur = Math.min(delta * 0.4, 6);
-      linkList.style.transition = 'none';
-      linkList.style.filter = `blur(${blur}px)`;
-      clearTimeout(resetTimer);
-      resetTimer = setTimeout(() => {
-        linkList.style.transition = 'filter 250ms ease-out';
-        linkList.style.filter = 'blur(0px)';
-      }, 100);
-    },
-    { passive: true }
-  );
 }
 
 function initThemeToggle() {
@@ -229,13 +201,6 @@ function setDensity(density, persist) {
   if (persist) localStorage.setItem('h3aven-density', density);
 }
 
-function greetingText() {
-  const h = new Date().getHours();
-  if (h < 12) return 'Bom dia! O que você quer salvar hoje?';
-  if (h < 18) return 'Boa tarde! O que você quer salvar hoje?';
-  return 'Boa noite! O que você quer salvar hoje?';
-}
-
 function renderRoute() {
   if (!currentSession) return;
   const hash = location.hash.replace(/^#\/?/, '');
@@ -247,8 +212,6 @@ function renderRoute() {
   document.querySelectorAll('.pill-nav-link').forEach((a) => {
     a.classList.toggle('active', a.dataset.view === currentView);
   });
-  hero.classList.toggle('hidden', currentView !== 'home');
-  homePills.classList.toggle('hidden', currentView !== 'home');
   collectionsRow.classList.toggle('hidden', currentView !== 'home');
   if (currentView === 'home') renderCollectionsRow();
 
@@ -285,7 +248,6 @@ function handleSession(session) {
     appView.classList.remove('hidden');
     userEmailEl.textContent = session.user.email;
     avatarInitial.textContent = session.user.email[0].toUpperCase();
-    heroGreeting.textContent = greetingText();
     loadLinks();
     loadCollections();
   } else {
@@ -436,7 +398,6 @@ function matchesQuery(link, query) {
 }
 
 function renderLinks(links) {
-  const query = searchInput.value.trim().toLowerCase();
   const viewFilter = VIEWS[currentView].filter;
   const collectionLinkIds = currentCollectionId
     ? new Set((collections.find((c) => c.id === currentCollectionId)?.linkIds) || [])
@@ -444,9 +405,8 @@ function renderLinks(links) {
 
   const filtered = links.filter((l) => {
     const matchesView = !viewFilter || viewFilter(l);
-    const matchesHomePill = currentView !== 'home' || !homeFilter || l.content_type === homeFilter;
     const matchesCollection = !collectionLinkIds || collectionLinkIds.has(l.id);
-    return matchesQuery(l, query) && matchesView && matchesHomePill && matchesCollection;
+    return matchesView && matchesCollection;
   });
 
   linkList.innerHTML = '';
@@ -1003,68 +963,6 @@ document.addEventListener('keydown', (e) => {
   if (!searchOverlay.classList.contains('hidden')) closeSearchOverlay();
 });
 
-searchInput.addEventListener('input', () => {
-  renderLinks(allLinks);
-  renderSearchSuggestions();
-});
-searchInput.addEventListener('focus', () => renderSearchSuggestions());
-document.addEventListener('click', (e) => {
-  if (!e.target.closest('.hero-search-bar')) searchSuggestions.classList.add('hidden');
-});
-document.getElementById('hero-search-form').addEventListener('submit', (e) => {
-  e.preventDefault();
-  renderLinks(allLinks);
-  searchSuggestions.classList.add('hidden');
-});
-
-function renderSearchSuggestions() {
-  const query = searchInput.value.trim().toLowerCase();
-  if (!query) {
-    searchSuggestions.classList.add('hidden');
-    searchSuggestions.innerHTML = '';
-    return;
-  }
-
-  const matches = allLinks.filter((l) => matchesQuery(l, query)).slice(0, 6);
-  searchSuggestions.innerHTML = '';
-  if (!matches.length) {
-    searchSuggestions.classList.add('hidden');
-    return;
-  }
-
-  matches.forEach((link) => {
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.className = 'search-suggestion';
-    const image = cardImageFor(link);
-    if (image) {
-      const img = document.createElement('img');
-      img.src = image;
-      img.alt = '';
-      item.appendChild(img);
-    }
-    const label = document.createElement('span');
-    label.textContent = cardTitleFor(link);
-    item.appendChild(label);
-    item.addEventListener('click', () => {
-      openDrawer(link);
-      searchSuggestions.classList.add('hidden');
-    });
-    searchSuggestions.appendChild(item);
-  });
-  searchSuggestions.classList.remove('hidden');
-}
-
-homePills.addEventListener('click', (e) => {
-  const btn = e.target.closest('.filter-pill');
-  if (!btn) return;
-  homeFilter = btn.dataset.filter;
-  [...homePills.querySelectorAll('.filter-pill')].forEach((b) => {
-    b.classList.toggle('active', b === btn);
-  });
-  renderLinks(allLinks);
-});
-
 // --- Core: salvar / tags / enriquecimento / excluir (reaproveitados pelos
 // fluxos do menu "Criar" e pela extensão indiretamente via mesma tabela) ---
 
@@ -1332,8 +1230,8 @@ async function saveExternalResult(result) {
 }
 
 // --- Overlay de busca unificada (Início/header) ---
-// Sem categoria travada: filtra os itens já salvos (mesma lógica de
-// matchesQuery já usada na hero). Com uma categoria travada (Filmes/Séries/
+// Sem categoria travada: filtra os itens já salvos (via matchesQuery).
+// Com uma categoria travada (Filmes/Séries/
 // Músicas): busca externa (TMDB ou Spotify), absorvendo os antigos fluxos
 // "Filme ou série"/"Música" do Criar.
 
