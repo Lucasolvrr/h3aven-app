@@ -253,14 +253,26 @@
     <div class="search-panel-body">
       <div class="search-section">
         <h4>Sugestões</h4>
-        <div class="search-category-chips">
-          <button type="button" class="search-suggestion-chip" data-category="filmes">Filmes</button>
-          <button type="button" class="search-suggestion-chip" data-category="musicas">Músicas</button>
-          <button type="button" class="search-suggestion-chip" data-category="series">Séries</button>
-          <button type="button" class="search-suggestion-chip" data-category="livros" disabled>Livros <small>em breve</small></button>
+        <div class="search-category-cards">
+          <button type="button" class="search-category-card" data-category="filmes">
+            <span class="search-category-card-icon"><svg width="32" height="32" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#01b4e4"/><path d="M5 10h14v7a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-7Z" fill="#fff"/><path d="M5 10l1.5-3h3L8 10H5Zm5 0 1.5-3h3L13 10h-3Zm5 0 1.5-3H19l-1 3h-3Z" fill="#0d253f"/></svg></span>
+            <span class="search-category-card-text"><strong>Busque por um filme</strong><small>Busque por um filme e adicione à sua biblioteca para assistir depois</small></span>
+          </button>
+          <button type="button" class="search-category-card" data-category="series">
+            <span class="search-category-card-icon"><svg width="32" height="32" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#01b4e4"/><rect x="5" y="7" width="14" height="10" rx="1.5" fill="#fff"/><path d="M9 19h6" stroke="#0d253f" stroke-width="1.5" stroke-linecap="round"/></svg></span>
+            <span class="search-category-card-text"><strong>Busque por uma série</strong><small>Busque por uma série e adicione à sua biblioteca para assistir depois</small></span>
+          </button>
+          <button type="button" class="search-category-card" data-category="musicas">
+            <span class="search-category-card-icon"><svg width="32" height="32" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1DB954"/><circle cx="12" cy="12" r="6" fill="#0b3d1f"/><circle cx="12" cy="12" r="1.6" fill="#1DB954"/></svg></span>
+            <span class="search-category-card-text"><strong>Busque por uma música</strong><small>Busque por uma música e adicione à sua biblioteca para ouvir depois</small></span>
+          </button>
+          <button type="button" class="search-category-card" data-category="livros" disabled>
+            <span class="search-category-card-icon"><svg width="32" height="32" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#3e4147"/><path d="M7 6.5c1.5-.7 3.5-.7 5 0v11c-1.5-.7-3.5-.7-5 0v-11ZM17 6.5c-1.5-.7-3.5-.7-5 0v11c1.5-.7 3.5-.7 5 0v-11Z" fill="#8e9297"/></svg></span>
+            <span class="search-category-card-text"><strong>Busque por um livro</strong><small>Em breve</small></span>
+          </button>
         </div>
       </div>
-      <div class="search-section">
+      <div class="search-section hidden" id="search-results-section">
         <h4>Resultados</h4>
         <p id="search-overlay-status" class="muted small hidden"></p>
         <div id="search-overlay-results" class="search-results-list"></div>

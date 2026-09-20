@@ -37,6 +37,7 @@ const searchOverlayForm = document.getElementById('search-overlay-form');
 const searchOverlayInput = document.getElementById('search-overlay-input');
 const searchOverlayResults = document.getElementById('search-overlay-results');
 const searchOverlayStatus = document.getElementById('search-overlay-status');
+const searchResultsSection = document.getElementById('search-results-section');
 const searchCategoryChip = document.getElementById('search-category-chip');
 const searchCategoryLabel = document.getElementById('search-category-label');
 const searchCategoryClear = document.getElementById('search-category-clear');
@@ -1242,10 +1243,11 @@ let searchOverlayDebounce;
 function openSearchOverlay() {
   searchOverlayCategory = null;
   searchCategoryChip.classList.add('hidden');
-  document.querySelectorAll('.search-suggestion-chip').forEach((c) => c.classList.remove('active'));
+  document.querySelectorAll('.search-category-card').forEach((c) => c.classList.remove('active'));
   searchOverlayInput.value = '';
   searchOverlayResults.innerHTML = '';
   searchOverlayStatus.classList.add('hidden');
+  searchResultsSection.classList.add('hidden');
   searchOverlay.classList.remove('hidden');
   setTimeout(() => searchOverlayInput.focus(), 0);
 }
@@ -1256,7 +1258,7 @@ function closeSearchOverlay() {
 
 function setSearchCategory(category) {
   searchOverlayCategory = category;
-  document.querySelectorAll('.search-suggestion-chip').forEach((c) => {
+  document.querySelectorAll('.search-category-card').forEach((c) => {
     c.classList.toggle('active', c.dataset.category === category);
   });
   if (category) {
@@ -1270,6 +1272,7 @@ function setSearchCategory(category) {
 }
 
 function renderSavedResults(query) {
+  searchResultsSection.classList.toggle('hidden', !query);
   const matches = query ? allLinks.filter((l) => matchesQuery(l, query)).slice(0, 20) : [];
   searchOverlayResults.innerHTML = '';
   searchOverlayStatus.classList.toggle('hidden', !query || matches.length > 0);
@@ -1303,6 +1306,7 @@ async function runSearchOverlayQuery() {
     return;
   }
 
+  searchResultsSection.classList.toggle('hidden', !query);
   if (!query) {
     searchOverlayResults.innerHTML = '';
     searchOverlayStatus.classList.add('hidden');
@@ -1360,10 +1364,10 @@ async function runSearchOverlayQuery() {
 
 headerSearchBtn.addEventListener('click', openSearchOverlay);
 
-document.querySelectorAll('.search-suggestion-chip').forEach((chip) => {
-  chip.addEventListener('click', () => {
-    if (chip.disabled) return;
-    setSearchCategory(chip.dataset.category);
+document.querySelectorAll('.search-category-card').forEach((card) => {
+  card.addEventListener('click', () => {
+    if (card.disabled) return;
+    setSearchCategory(card.dataset.category);
   });
 });
 
