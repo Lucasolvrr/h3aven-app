@@ -256,8 +256,11 @@ async function getSpotifyToken() {
 
 async function spotifySearch(query) {
   const token = await getSpotifyToken();
+  // Spotify capped /v1/search's `limit` at 10 in a Feb 2026 API change (it
+  // used to allow up to 50) — anything higher now fails with a 400 "Invalid
+  // limit", found while live-testing this after the first deploy.
   const res = await withTimeout((signal) =>
-    fetch(`https://api.spotify.com/v1/search?type=track&limit=12&q=${encodeURIComponent(query)}`, {
+    fetch(`https://api.spotify.com/v1/search?type=track&limit=10&q=${encodeURIComponent(query)}`, {
       headers: { Authorization: `Bearer ${token}` },
       signal,
     })
