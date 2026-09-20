@@ -25,7 +25,7 @@ Ideias futuras para o h3aven — não estão em desenvolvimento agora.
 
 - **Livros na biblioteca** — novo `content_type` pra livros. [ClickUp](https://app.clickup.com/t/86e3a6y4c)
 - **Melhorar tela de criação de conta** — hoje é só o magic link. [ClickUp](https://app.clickup.com/t/86e3a6y4h)
-- **Música/álbum por nome, sem colar link** — busca por nome via API do Spotify, igual ao fluxo de Filme ou série via TMDB. [ClickUp](https://app.clickup.com/t/86e3a6y4m)
+- ~~**Música/álbum por nome, sem colar link**~~ — ✅ feito em 2026-09-20: busca de Músicas por nome via Spotify agora vive no overlay de busca unificada (relayout Norden). [ClickUp](https://app.clickup.com/t/86e3a6y4m)
 - **Abas por categoria dentro de Biblioteca** — Filmes/Séries/Músicas/Livros etc, em vez de tudo misturado. [ClickUp](https://app.clickup.com/t/86e3a6y4p)
 - **Importar lista deve aceitar arquivo de favoritos exportado do navegador** — não só a planilha colada (URL + tags). [ClickUp](https://app.clickup.com/t/86e3a6y4u)
 - **Atualizar layout da extensão do Chrome** — ficou defasada em relação ao redesign recente do app web. [ClickUp](https://app.clickup.com/t/86e3a6y4z)
@@ -45,3 +45,12 @@ Ideias futuras para o h3aven — não estão em desenvolvimento agora.
 **⚠️ Complexidade/custo:** busca unificada = até 3 chamadas de API em paralelo por keystroke (TMDB + Spotify + Livros) com debounce — bem mais chamadas do que o fluxo atual de uma busca explícita por vez. Maior risco técnico da ideia.
 
 **Em aberto:** o que fazer quando o texto digitado não dá match em nenhuma API e a pessoa aperta Enter (nada / criar coleção com esse nome / ignorar).
+
+**Atualização 2026-09-20:** a essência dessa ideia foi implementada como parte do relayout Norden — o novo `#search-overlay` já faz busca ao vivo sem categoria travada (itens salvos) e busca externa travada por categoria (Filmes/Séries via TMDB, Músicas via Spotify), absorvendo os fluxos antigos de "Filme ou série"/"Música" do Criar. Livro fica de fora até esse content_type existir. "Importar lista" e "Extensão do Chrome" continuam como ações separadas do Criar (não entraram no overlay), como a recomendação de escopo já sugeria.
+
+## Outras ideias (2026-09-20)
+
+- **Novos empty states** — alinhados à nova paleta/fonte do relayout Norden; hoje a maioria é texto genérico simples. [ClickUp](https://app.clickup.com/t/86e3bdvej)
+- **Mudar fluxo de login** — hoje é só magic link; pode se sobrepor com "Melhorar tela de criação de conta" acima. [ClickUp](https://app.clickup.com/t/86e3bdven)
+- **Autocomplete de coleções na extensão do Chrome** — escolher a(s) coleção(ões) já no momento de salvar pela extensão, sem precisar abrir o app depois. [ClickUp](https://app.clickup.com/t/86e3bdvet)
+- **Cover de álbum com disco de fundo** — capa de música com algum efeito visual de vinil ao fundo; ainda sem referência visual definida. [ClickUp](https://app.clickup.com/t/86e3bdvey)
