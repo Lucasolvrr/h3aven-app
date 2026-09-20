@@ -12,6 +12,13 @@ const loginView = document.getElementById('login-view');
 const appView = document.getElementById('app-view');
 const loginForm = document.getElementById('login-form');
 const loginStatus = document.getElementById('login-status');
+const passwordInput = document.getElementById('password-input');
+const authHeadline = document.getElementById('auth-headline');
+const authSubline = document.getElementById('auth-subline');
+const authSubmitBtn = document.getElementById('auth-submit-btn');
+const authToggleText = document.getElementById('auth-toggle-text');
+const authToggleBtn = document.getElementById('auth-toggle-btn');
+const authForgotBtn = document.getElementById('auth-forgot-btn');
 const userEmailEl = document.getElementById('user-email');
 const logoutBtn = document.getElementById('logout-btn');
 const searchInput = document.getElementById('search-input');
@@ -265,17 +272,63 @@ function handleSession(session) {
   }
 }
 
-loginForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
+let authMode = 'signup';
+
+function setAuthMode(mode) {
+  authMode = mode;
+  loginStatus.textContent = '';
+  if (mode === 'signup') {
+    authHeadline.textContent = 'Crie sua conta gratuita';
+    authSubline.textContent = 'Sua biblioteca pessoal, sincronizada com a extensão.';
+    authSubmitBtn.textContent = 'Criar conta';
+    authToggleText.textContent = 'Já tem uma conta?';
+    authToggleBtn.textContent = 'Entrar';
+  } else {
+    authHeadline.textContent = 'Bem-vindo de volta';
+    authSubline.textContent = 'Entre com seu email e senha.';
+    authSubmitBtn.textContent = 'Entrar';
+    authToggleText.textContent = 'Ainda não tem conta?';
+    authToggleBtn.textContent = 'Criar conta';
+  }
+}
+
+authToggleBtn.addEventListener('click', () => {
+  setAuthMode(authMode === 'signup' ? 'signin' : 'signup');
+});
+
+authForgotBtn.addEventListener('click', async () => {
   const email = document.getElementById('email-input').value.trim();
+  if (!email) {
+    loginStatus.textContent = 'Digite seu email acima antes de pedir a redefinição.';
+    return;
+  }
   loginStatus.textContent = 'Enviando...';
-  const { error } = await supabase.auth.signInWithOtp({
-    email,
-    options: { emailRedirectTo: window.location.href },
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.href,
   });
   loginStatus.textContent = error
     ? `Erro: ${error.message}`
-    : 'Link enviado! Confira seu email e clique nele.';
+    : 'Email de redefinição enviado! Confira sua caixa de entrada.';
+});
+
+loginForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('email-input').value.trim();
+  const password = passwordInput.value;
+  loginStatus.textContent = authMode === 'signup' ? 'Criando conta...' : 'Entrando...';
+
+  const { data, error } =
+    authMode === 'signup'
+      ? await supabase.auth.signUp({ email, password })
+      : await supabase.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    loginStatus.textContent = `Erro: ${error.message}`;
+  } else if (authMode === 'signup' && !data.session) {
+    loginStatus.textContent = 'Conta criada! Confira seu email para confirmar antes de entrar.';
+  } else {
+    loginStatus.textContent = '';
+  }
 });
 
 logoutBtn.addEventListener('click', async () => {

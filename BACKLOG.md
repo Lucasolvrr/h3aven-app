@@ -54,3 +54,4 @@ Ideias futuras para o h3aven — não estão em desenvolvimento agora.
 - **Mudar fluxo de login** — hoje é só magic link; pode se sobrepor com "Melhorar tela de criação de conta" acima. [ClickUp](https://app.clickup.com/t/86e3bdven)
 - **Autocomplete de coleções na extensão do Chrome** — escolher a(s) coleção(ões) já no momento de salvar pela extensão, sem precisar abrir o app depois. [ClickUp](https://app.clickup.com/t/86e3bdvet)
 - **Cover de álbum com disco de fundo** — capa de música com algum efeito visual de vinil ao fundo; ainda sem referência visual definida. [ClickUp](https://app.clickup.com/t/86e3bdvey)
+- **Adicionar login via OAuth (Google + Microsoft)** — fast-follow da tela de login (2026-09-20): layout novo já reserva espaço pros botões, mas esta rodada só entrega email + senha. Exige credenciais OAuth (Google Cloud/Azure AD) configuradas pelo usuário no Supabase Auth. [ClickUp](https://app.clickup.com/t/86e3bfn1g)
