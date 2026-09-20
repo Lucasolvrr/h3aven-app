@@ -442,6 +442,10 @@ function buildCard(link) {
     media.style.background = placeholderGradient(link.id);
   }
 
+  const scrim = document.createElement('div');
+  scrim.className = 'card-scrim';
+  media.appendChild(scrim);
+
   const price = cardPriceFor(link);
   if (price) {
     const priceBadge = document.createElement('span');
@@ -462,22 +466,17 @@ function buildCard(link) {
   });
   media.appendChild(saveBtn);
 
-  li.appendChild(media);
-
-  const body = document.createElement('div');
-  body.className = 'card-body';
+  const favicon = document.createElement('div');
+  favicon.className = 'card-favicon-badge';
+  favicon.innerHTML = `${faviconIconFor(link)}<span class="card-favicon-domain">${escapeHtml(domainFor(link.url))}</span>`;
+  media.appendChild(favicon);
 
   const title = document.createElement('span');
-  title.className = 'card-title';
+  title.className = 'card-hover-title';
   title.textContent = cardTitleFor(link);
-  body.appendChild(title);
+  media.appendChild(title);
 
-  const domain = document.createElement('span');
-  domain.className = 'card-domain';
-  domain.textContent = domainFor(link.url);
-  body.appendChild(domain);
-
-  li.appendChild(body);
+  li.appendChild(media);
 
   li.addEventListener('click', () => openQuickview(link));
   li.addEventListener('keydown', (e) => {
@@ -648,6 +647,22 @@ function domainFor(url) {
   } catch {
     return '';
   }
+}
+
+// Ícone da própria plataforma quando ela tem uma marca reconhecível; para
+// links genéricos, usa o favicon real do domínio (serviço gratuito, sem chave).
+const PLATFORM_ICONS = {
+  youtube: '<svg width="16" height="16" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#FF0000"/><path d="M10 8l6 4-6 4V8Z" fill="#fff"/></svg>',
+  music: '<svg width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="12" fill="#1DB954"/><path d="M6.5 9.5c3.5-1 8-.6 10.8 1.1M7 13c3-.8 6.5-.5 9 .9M7.5 16.2c2.4-.6 5-.4 7 .7" stroke="#fff" stroke-width="1.4" stroke-linecap="round" fill="none"/></svg>',
+  tweet: '<svg width="16" height="16" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#000"/><path d="M6 6l12 12M18 6 6 18" stroke="#fff" stroke-width="2" stroke-linecap="round"/></svg>',
+};
+
+function faviconIconFor(link) {
+  const platformIcon = PLATFORM_ICONS[link.content_type];
+  if (platformIcon) return platformIcon;
+  const host = domainFor(link.url);
+  if (!host) return '';
+  return `<img src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=64" alt="" />`;
 }
 
 function openQuickview(link) {
