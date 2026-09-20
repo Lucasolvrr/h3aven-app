@@ -58,6 +58,7 @@ const collectionBackBar = document.getElementById('collection-back-bar');
 const collectionBackBtn = document.getElementById('collection-back-btn');
 const collectionViewTitle = document.getElementById('collection-view-title');
 const collectionPickerOverlay = document.getElementById('collection-picker-overlay');
+const collectionPickerPanel = document.querySelector('.collection-picker');
 const collectionPickerList = document.getElementById('collection-picker-list');
 const collectionPickerNewForm = document.getElementById('collection-picker-new-form');
 const collectionPickerNewInput = document.getElementById('collection-picker-new-input');
@@ -74,7 +75,7 @@ const drawerDescription = document.getElementById('drawer-description');
 const drawerTime = document.getElementById('drawer-time');
 const drawerCollections = document.getElementById('drawer-collections');
 const drawerNotes = document.getElementById('drawer-notes');
-const drawerShareBtn = document.getElementById('drawer-share-btn');
+const drawerCopyBtn = document.getElementById('drawer-copy-btn');
 const drawerOpenLink = document.getElementById('drawer-open-link');
 const drawerDeleteBtn = document.getElementById('drawer-delete-btn');
 
@@ -523,7 +524,7 @@ function buildCard(link) {
     '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12a1 1 0 0 1 1 1v16l-7-4-7 4V4a1 1 0 0 1 1-1Z"/></svg>';
   saveBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    openCollectionPicker(link);
+    openCollectionPicker(link, e);
   });
   media.appendChild(saveBtn);
 
@@ -690,11 +691,39 @@ async function createCollection(name) {
 
 // --- Popover de "salvar em coleção" ---
 
-function openCollectionPicker(link) {
+function openCollectionPicker(link, triggerEvent) {
   collectionPickerLink = link;
   renderCollectionPickerList();
   collectionPickerNewForm.classList.add('hidden');
   collectionPickerOverlay.classList.remove('hidden');
+  positionCollectionPicker(triggerEvent?.currentTarget);
+}
+
+// Posiciona o popover perto de onde o usuário clicou (card ou drawer) em vez
+// de sempre centralizado — cai pra cima do gatilho quando não cabe embaixo.
+function positionCollectionPicker(trigger) {
+  const margin = 12;
+  const panelWidth = collectionPickerPanel.offsetWidth || 408;
+  const panelHeight = collectionPickerPanel.offsetHeight || 320;
+
+  let top = window.innerHeight / 2 - panelHeight / 2;
+  let left = window.innerWidth / 2 - panelWidth / 2;
+
+  if (trigger) {
+    const rect = trigger.getBoundingClientRect();
+    top = rect.bottom + margin;
+    left = rect.left;
+    if (top + panelHeight > window.innerHeight - margin) {
+      top = Math.max(margin, rect.top - panelHeight - margin);
+    }
+    if (left + panelWidth > window.innerWidth - margin) {
+      left = window.innerWidth - panelWidth - margin;
+    }
+    left = Math.max(margin, left);
+  }
+
+  collectionPickerPanel.style.top = `${top}px`;
+  collectionPickerPanel.style.left = `${left}px`;
 }
 
 function closeCollectionPicker() {
@@ -885,14 +914,12 @@ function renderDrawerCollections(link) {
       drawerCollections.appendChild(chip);
     });
 
-  const addBtn = document.createElement('button');
-  addBtn.type = 'button';
-  addBtn.className = 'link-drawer-collection-add';
-  addBtn.setAttribute('aria-label', 'Adicionar a uma coleção');
-  addBtn.innerHTML =
-    '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>';
-  addBtn.addEventListener('click', () => openCollectionPicker(link));
-  drawerCollections.appendChild(addBtn);
+  if (!drawerCollections.children.length) {
+    const empty = document.createElement('span');
+    empty.className = 'link-drawer-collections-empty muted small';
+    empty.textContent = 'Nenhuma coleção ainda.';
+    drawerCollections.appendChild(empty);
+  }
 }
 
 function openDrawer(link) {
@@ -917,10 +944,12 @@ function openDrawer(link) {
   buildDrawerCollage(cardImageFor(link));
 
   linkDrawerOverlay.classList.remove('hidden');
+  document.body.classList.add('scroll-locked');
 }
 
 function closeDrawer() {
   linkDrawerOverlay.classList.add('hidden');
+  document.body.classList.remove('scroll-locked');
   currentDrawerLink = null;
 }
 
@@ -931,24 +960,18 @@ drawerNotes.addEventListener('blur', async () => {
   currentDrawerLink.notes = notes;
 });
 
-drawerShareBtn.addEventListener('click', async () => {
+drawerCopyBtn.addEventListener('click', async () => {
   if (!currentDrawerLink) return;
-  const shareLabel = drawerShareBtn.querySelector('span');
-  if (navigator.share) {
-    try {
-      await navigator.share({ title: cardTitleFor(currentDrawerLink), url: currentDrawerLink.url });
-      return;
-    } catch {
-      // usuário cancelou o share nativo — cai pro fallback de copiar
-    }
-  }
   await navigator.clipboard.writeText(currentDrawerLink.url);
-  shareLabel.textContent = 'Copiado!';
-  setTimeout(() => (shareLabel.textContent = 'Compartilhar'), 1500);
+  drawerCopyBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+  setTimeout(() => {
+    drawerCopyBtn.innerHTML =
+      '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>';
+  }, 1500);
 });
 
-drawerSaveBtn.addEventListener('click', () => {
-  if (currentDrawerLink) openCollectionPicker(currentDrawerLink);
+drawerSaveBtn.addEventListener('click', (e) => {
+  if (currentDrawerLink) openCollectionPicker(currentDrawerLink, e);
 });
 
 drawerDeleteBtn.addEventListener('click', async () => {
