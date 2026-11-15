@@ -8,6 +8,9 @@
 //   { action: 'search', query, category } -> external search results, no DB
 //     write. category is 'filmes'/'series' (TMDB) or 'musicas' (Spotify) —
 //     the unified search overlay locks to one category per search.
+//   { action: 'preview', url } -> page metadata for a URL (title, description,
+//     image, favicon, domain), no DB write. Used by quick-add so the bookmark
+//     can be previewed and categorised before it is saved.
 //   { action: 'enrich', linkId, url, contentType } -> fetches metadata for an
 //     existing link row and updates it (youtube/music/tweet/social/link)
 //
@@ -139,6 +142,131 @@ async function scrapeOg(url) {
     meta.image = await microlinkScreenshot(url).catch(() => null);
   }
   return meta;
+}
+
+// --- Bookmark preview (used by quick-add, the extension and future share
+// targets): returns page metadata WITHOUT writing to the database, so the
+// client can show it, suggest a category and let the user confirm first.
+
+function decodeEntities(str) {
+  if (!str) return str;
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#0?39;|&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+    .trim();
+}
+
+function extractMetaByName(html, name) {
+  const patterns = [
+    new RegExp(`<meta[^>]+name=["']${name}["'][^>]+content=["']([^"']*)["']`, 'i'),
+    new RegExp(`<meta[^>]+content=["']([^"']*)["'][^>]+name=["']${name}["']`, 'i'),
+  ];
+  for (const re of patterns) {
+    const m = html.match(re);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+function extractFavicon(html) {
+  const links = html.match(/<link[^>]+>/gi) || [];
+  let best = null;
+  for (const tag of links) {
+    const rel = (tag.match(/rel=["']([^"']+)["']/i) || [])[1] || '';
+    if (!/icon/i.test(rel)) continue;
+    const href = (tag.match(/href=["']([^"']+)["']/i) || [])[1];
+    if (!href) continue;
+    // Prefer apple-touch-icon (bigger, square) over a 16px favicon.
+    if (/apple-touch-icon/i.test(rel)) return href;
+    if (!best) best = href;
+  }
+  return best;
+}
+
+function absoluteUrl(value, base) {
+  if (!value) return null;
+  try {
+    return new URL(decodeEntities(value), base).toString();
+  } catch {
+    return null;
+  }
+}
+
+function isPublicHttpUrl(value) {
+  try {
+    const u = new URL(value);
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+    const host = u.hostname;
+    // Never let this function be used to probe private networks.
+    if (host === 'localhost' || host.endsWith('.local') || host.endsWith('.internal')) return false;
+    if (/^(127\.|10\.|192\.168\.|169\.254\.|0\.)/.test(host)) return false;
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(host)) return false;
+    if (host === '[::1]' || host.startsWith('[fc') || host.startsWith('[fd') || host.startsWith('[fe80')) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function previewUrl(url) {
+  const domain = new URL(url).hostname.replace(/^www\./, '');
+  const result = { url, domain, title: null, description: null, image: null, favicon: null, siteName: null };
+
+  let html = null;
+  let finalUrl = url;
+  try {
+    const res = await withTimeout((signal) =>
+      fetch(url, {
+        signal,
+        redirect: 'follow',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; h3avenBot/1.0; +https://h3aven.netlify.app)',
+          Accept: 'text/html,application/xhtml+xml',
+        },
+      })
+    );
+    if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
+    finalUrl = res.url || url;
+    // Only the head matters, and some pages are enormous.
+    html = (await res.text()).slice(0, 600000);
+  } catch {
+    html = null;
+  }
+
+  if (html) {
+    const titleTag = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1];
+    result.title = decodeEntities(extractOgTag(html, 'title') || extractMetaByName(html, 'twitter:title') || titleTag);
+    result.description = decodeEntities(
+      extractOgTag(html, 'description') || extractMetaByName(html, 'description') || extractMetaByName(html, 'twitter:description')
+    );
+    result.image = absoluteUrl(extractOgTag(html, 'image') || extractMetaByName(html, 'twitter:image'), finalUrl);
+    result.favicon = absoluteUrl(extractFavicon(html), finalUrl);
+    result.siteName = decodeEntities(extractOgTag(html, 'site_name'));
+  }
+
+  // Blocked fetch, or a page that exposes no preview image: let a real
+  // (headless) browser have a go. Best-effort — a bookmark is still valid
+  // without any of this.
+  if (!html || !result.image) {
+    try {
+      const data = await microlinkFetch(url, { screenshot: !result.image, meta: true });
+      result.title = result.title || data.title || null;
+      result.description = result.description || data.description || null;
+      result.image = result.image || (data.image && data.image.url) || (data.screenshot && data.screenshot.url) || null;
+      result.favicon = result.favicon || (data.logo && data.logo.url) || null;
+      result.siteName = result.siteName || data.publisher || null;
+    } catch {
+      // keep whatever we have
+    }
+  }
+
+  result.reachable = Boolean(html || result.title || result.image);
+  return result;
 }
 
 function extractYoutubeId(url) {
@@ -307,6 +435,11 @@ Deno.serve(async (req) => {
     if (body.action === 'search') {
       const results = await performSearch(body.category, body.query);
       return json({ results });
+    }
+
+    if (body.action === 'preview') {
+      if (!body.url || !isPublicHttpUrl(body.url)) return json({ error: 'A public http(s) url is required' }, 400);
+      return json({ preview: await previewUrl(body.url) });
     }
 
     if (body.action === 'enrich') {

@@ -1,0 +1,325 @@
+/* Content components: quick access, folders, tabs, masonry + bookmark cards,
+   library posters, bulk bar. Overlays live in overlays.css. */
+
+/* --- Quick access -------------------------------------------------------------- */
+
+.quick { display: grid; grid-template-columns: repeat(auto-fill, minmax(172px, 1fr)); gap: 8px; }
+.quick-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 13px;
+  transition: background var(--fast), color var(--fast), border-color var(--fast);
+}
+.quick-item:hover { background: var(--surface-2); color: var(--text); border-color: var(--border-strong); }
+.quick-item .quick-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.quick-item .quick-count { color: var(--text-3); font-size: 12px; font-variant-numeric: tabular-nums; }
+
+/* --- Folders (subcategories) ---------------------------------------------------- */
+
+/* The folder itself is the card: a back panel with a tab, sheets peeking out
+   (one per bookmark, up to three) and a front flap that carries the name. */
+.folders { display: grid; grid-template-columns: repeat(auto-fill, minmax(184px, 1fr)); gap: 22px 18px; }
+.folder {
+  --folder-back: #85837d;
+  --folder-front-a: #a9a7a1;
+  --folder-front-b: #97958f;
+  --folder-ink: #1a1a1a;
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 1.3;
+  text-align: left;
+}
+.folder-link { position: absolute; inset: 0; display: block; border-radius: 14px; }
+.folder-link:focus-visible { outline: 2px solid rgba(242, 242, 242, 0.75); outline-offset: 4px; }
+
+.folder-back {
+  position: absolute;
+  inset: 13% 4.5% 5% 4.5%;
+  border-radius: 0 12px 14px 14px;
+  background: var(--folder-back);
+}
+.folder-back::before,
+.folder-back::after {
+  /* the tab: a rounded block plus a skewed piece for the sloped edge */
+  content: '';
+  position: absolute;
+  bottom: calc(100% - 1px);
+  height: 15%;
+  background: var(--folder-back);
+}
+.folder-back::before { left: 0; width: 36%; border-radius: 11px 0 0 0; }
+.folder-back::after { left: 30%; width: 14%; border-radius: 0 9px 0 0; transform-origin: bottom left; transform: skewX(32deg); }
+
+.folder-paper {
+  position: absolute;
+  height: 50%;
+  border-radius: 8px 8px 0 0;
+  background: #f3f1ec;
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.7) inset, 0 1px 4px rgba(0, 0, 0, 0.28);
+  transition: transform var(--medium) var(--ease);
+}
+.folder-paper:nth-last-child(4) { top: 16%; left: 13%; right: 13%; background: #e4e2dc; }
+.folder-paper:nth-last-child(3) { top: 19.5%; left: 10.5%; right: 10.5%; background: #ecebe5; }
+.folder-paper:nth-last-child(2) { top: 23%; left: 8%; right: 8%; }
+.folder:hover .folder-paper:nth-last-child(4) { transform: translateY(-9%); }
+.folder:hover .folder-paper:nth-last-child(3) { transform: translateY(-7%); }
+.folder:hover .folder-paper:nth-last-child(2) { transform: translateY(-5%); }
+
+.folder-front {
+  position: absolute;
+  inset: 31% 0 0 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 calc(2.5% + 14px) 12px calc(2.5% + 15px);
+  isolation: isolate;
+  color: var(--folder-ink);
+}
+.folder-front::before {
+  /* The flap leans towards the viewer, as if seen from slightly above: wider
+     at the top than the back panel. Only the shape tilts; the label stays flat. */
+  content: '';
+  position: absolute;
+  inset: 0 2.5%;
+  z-index: -1;
+  border-radius: 12px 12px 14px 14px;
+  background: linear-gradient(180deg, var(--folder-front-a), var(--folder-front-b));
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.28) inset, 0 -2px 6px rgba(0, 0, 0, 0.2), 0 8px 18px rgba(0, 0, 0, 0.28);
+  transform-origin: bottom;
+  transform: perspective(520px) rotateX(-13deg);
+  transition: transform var(--medium) var(--ease);
+}
+.folder:hover .folder-front::before { transform: perspective(520px) rotateX(-24deg); }
+.folder-name { min-width: 0; font-size: 14px; font-weight: 500; letter-spacing: -0.005em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.folder-count { flex: none; font-size: 12px; font-variant-numeric: tabular-nums; color: rgba(26, 26, 26, 0.55); }
+
+.folder .folder-menu { position: absolute; top: calc(31% + 7px); right: 7px; opacity: 0; color: var(--folder-ink); background: transparent; }
+.folder .folder-menu:hover,
+.folder .folder-menu[aria-expanded='true'] { background: rgba(0, 0, 0, 0.14); color: var(--folder-ink); }
+.folder:hover .folder-menu,
+.folder-menu:focus-visible,
+.folder-menu[aria-expanded='true'] { opacity: 1; }
+
+.folder.is-new {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 8px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 14px;
+  color: var(--text-3);
+  font-size: 13.5px;
+  transition: background var(--medium), color var(--medium);
+}
+.folder.is-new:hover { background: var(--surface); color: var(--text); }
+
+/* --- Subcategory tabs ------------------------------------------------------------ */
+
+.tabs { display: flex; align-items: center; gap: 2px; margin: 0 calc(var(--gutter) * -1); padding: 0 var(--gutter); overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tab { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 11px; border-radius: 8px; color: var(--text-2); font-size: 13px; white-space: nowrap; transition: background var(--fast), color var(--fast); }
+.tab:hover { background: rgba(255, 255, 255, 0.05); color: var(--text); }
+.tab.is-active { background: var(--surface-2); color: var(--text); }
+.tab .count { color: var(--text-3); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.tab-sep { flex: none; width: 1px; height: 16px; margin: 0 6px; background: var(--border-strong); }
+
+/* --- Masonry ---------------------------------------------------------------------- */
+/* Cards are absolutely positioned by js/ui/masonry.js: each card goes to the
+   currently shortest column, so newest-first order reads left to right and
+   top to bottom without CSS-column reordering. */
+
+.masonry { position: relative; }
+.bm-card { position: absolute; top: 0; left: 0; cursor: pointer; border-radius: var(--radius-lg); }
+.masonry.is-settled .bm-card { transition: transform 260ms var(--ease); }
+
+.bm-thumb {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: var(--ar, 1.5);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.bm-thumb::after { content: ''; position: absolute; inset: 0; border-radius: inherit; border: 1px solid rgba(255, 255, 255, 0.07); pointer-events: none; }
+.bm-thumb img.bm-image { width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: transform 500ms var(--ease), opacity 300ms; }
+.bm-thumb.is-loaded img.bm-image { opacity: 1; }
+.bm-thumb.is-loading { background: linear-gradient(100deg, var(--surface) 30%, var(--surface-hover) 50%, var(--surface) 70%); background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+.bm-card:hover .bm-image { transform: scale(1.035); }
+
+/* No preview image: a calm typographic tile instead of a broken box */
+.bm-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 14px;
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.055), transparent 60%),
+    var(--surface);
+  text-align: center;
+}
+.bm-fallback-icon { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 13px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-2); font-size: 18px; font-weight: 500; text-transform: uppercase; }
+.bm-fallback-icon img { width: 24px; height: 24px; border-radius: 5px; }
+.bm-fallback-domain { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-3); font-size: 12px; }
+
+.bm-check {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: rgba(18, 18, 18, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: transparent;
+  opacity: 0;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: opacity var(--fast), background var(--fast);
+}
+.bm-card:hover .bm-check,
+.bm-check:focus-visible,
+.masonry.is-selecting .bm-check { opacity: 1; }
+.bm-card.is-selected .bm-check { opacity: 1; background: var(--text); border-color: var(--text); color: var(--text-on-light); }
+.bm-card.is-selected .bm-thumb { outline: 2px solid var(--text); outline-offset: 2px; }
+
+.bm-actions { position: absolute; top: 8px; right: 8px; z-index: 2; display: flex; gap: 6px; }
+.bm-act {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(18, 18, 18, 0.66);
+  color: #fff;
+  opacity: 0;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: opacity var(--fast), background var(--fast), transform var(--fast);
+}
+.bm-act:hover { background: rgba(18, 18, 18, 0.9); }
+.bm-act:active { transform: scale(0.92); }
+.bm-card:hover .bm-act,
+.bm-act:focus-visible { opacity: 1; }
+.bm-act.is-on { opacity: 1; color: var(--fav); }
+.bm-act.is-on .icon { fill: currentColor; }
+
+.bm-badge { position: absolute; left: 8px; bottom: 8px; z-index: 2; display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 999px; background: rgba(18, 18, 18, 0.72); color: var(--text-2); font-size: 11px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+
+.bm-meta { display: flex; gap: 8px; padding: 9px 2px 2px; }
+.bm-favicon { width: 16px; height: 16px; margin-top: 1px; border-radius: 4px; flex: none; }
+.bm-text { min-width: 0; }
+.bm-title { font-size: 13px; font-weight: 500; line-height: 1.35; color: var(--text); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.bm-domain { margin-top: 2px; font-size: 12px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bm-card:hover .bm-domain { color: var(--text-2); }
+
+.masonry-more { display: grid; place-items: center; height: 60px; color: var(--text-3); font-size: 12px; }
+
+/* Loading placeholder shown before the library arrives */
+.skeleton-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.skeleton-card { border-radius: var(--radius-lg); }
+.skeleton-card:nth-child(4n + 1) { aspect-ratio: 0.9; }
+.skeleton-card:nth-child(4n + 2) { aspect-ratio: 1.5; }
+.skeleton-card:nth-child(4n + 3) { aspect-ratio: 1.1; }
+.skeleton-card:nth-child(4n + 4) { aspect-ratio: 1.3; }
+
+/* --- Bulk selection bar ------------------------------------------------------------ */
+
+.bulkbar {
+  position: fixed;
+  left: 50%;
+  bottom: 22px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 6px 5px 14px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-pop);
+  transform: translateX(-50%);
+  animation: rise-in var(--medium) var(--ease);
+  white-space: nowrap;
+}
+.bulkbar-count { margin-right: 8px; font-size: 13px; color: var(--text); font-variant-numeric: tabular-nums; }
+.bulkbar .btn { height: 30px; padding: 0 10px; border-radius: 999px; }
+
+/* --- Library (movies, series, music) ------------------------------------------------ */
+
+.poster-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 18px 14px; }
+.poster { display: block; text-align: left; cursor: pointer; }
+.poster-art { position: relative; overflow: hidden; aspect-ratio: 2 / 3; border-radius: var(--radius-lg); background: var(--surface); }
+.poster.is-music .poster-art { aspect-ratio: 1; }
+.poster-art::after { content: ''; position: absolute; inset: 0; border-radius: inherit; border: 1px solid rgba(255, 255, 255, 0.07); }
+.poster-art img { width: 100%; height: 100%; object-fit: cover; transition: transform 500ms var(--ease); }
+.poster:hover .poster-art img { transform: scale(1.035); }
+.poster-art .bm-fallback-icon { position: absolute; inset: 0; margin: auto; }
+.poster-title { margin-top: 8px; font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.poster-sub { font-size: 12px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* --- Search page --------------------------------------------------------------------- */
+
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 46px;
+  padding: 0 14px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-3);
+  transition: border-color var(--fast);
+}
+.search-field:focus-within { border-color: var(--border-strong); }
+.search-field input { flex: 1; min-width: 0; background: none; border: 0; outline: none; font-size: 15px; color: var(--text); }
+.search-field input::placeholder { color: var(--text-3); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 999px; background: var(--surface-2); color: var(--text-2); font-size: 12px; white-space: nowrap; }
+button.chip:hover, a.chip:hover { background: var(--surface-hover); color: var(--text); }
+.chip .chip-x { display: grid; place-items: center; margin-right: -4px; width: 16px; height: 16px; border-radius: 50%; color: var(--text-3); }
+.chip .chip-x:hover { background: rgba(255, 255, 255, 0.12); color: var(--text); }
+
+@media (max-width: 1199px) {
+  .skeleton-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@media (max-width: 767px) {
+  .quick { display: flex; margin: 0 calc(var(--gutter) * -1); padding: 0 var(--gutter); overflow-x: auto; scrollbar-width: none; }
+  .quick::-webkit-scrollbar { display: none; }
+  .quick-item { flex: none; min-width: 148px; }
+
+  .folders { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .folder-menu { opacity: 1; }
+
+  .skeleton-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .bm-meta { padding-top: 7px; gap: 6px; }
+  .bm-title { font-size: 12.5px; }
+  .bm-domain { font-size: 11.5px; }
+  .bm-favicon { width: 14px; height: 14px; }
+
+  .poster-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 10px; }
+  .bulkbar { bottom: max(14px, env(safe-area-inset-bottom)); max-width: calc(100vw - 16px); }
+  .bulkbar .btn span { display: none; }
+}
+
+/* No hover on touch screens: keep the favourite marker, drop hover-only actions */
+@media (hover: none) {
+  .bm-act:not(.is-on) { display: none; }
+  .bm-check { display: none; }
+  .masonry.is-selecting .bm-check { display: grid; }
+}

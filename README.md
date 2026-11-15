@@ -67,3 +67,30 @@ multi-tenant, sem cobrança, roda no free tier do Supabase).
   toda vez que você abre o popup — não precisa ficar gerando de novo.
 - Se um dia quiser trocar de conta ou o token parar de funcionar, é só repetir o
   passo 3.3–3.4 com um token novo.
+
+## Redesign: Bookmark Manager (2026-11)
+
+O web app foi reescrito como um gerenciador de bookmarks com sidebar, categorias >
+pastas (subcategorias), Inbox, favoritos, tags, busca e paleta de comandos
+(Ctrl/Cmd + K). A interface agora é em inglês.
+
+**Passo obrigatório no banco (uma vez):** rode a seção "Migration: Bookmark Manager"
+no fim de `supabase/schema.sql` no SQL Editor. Ela é aditiva e idempotente (não apaga
+nada): cria `categories` e `subcategories`, adiciona colunas em `links` e copia as
+coleções antigas para tags. Sem ela o app abre em modo somente leitura e avisa.
+
+**Opcional:** `supabase functions deploy fetch-metadata` publica a ação `preview`
+(metadados no servidor). Sem o deploy, o app usa o microlink direto do navegador.
+
+**Modo preview:** sem login, o app abre com uma biblioteca de exemplo guardada só no
+navegador (`ALLOW_PREVIEW_MODE` em `web-app/js/config.js`). Os dados reais ficam no
+Supabase depois do login.
+
+Estrutura do `web-app/`:
+
+- `css/` — `tokens.css` (design tokens e controles), `shell.css` (sidebar, topbar,
+  hero), `components.css` (cards, masonry, pastas), `overlays.css` (modais, paleta)
+- `js/data/` — `store.js` (estado + ações), `cloud-driver.js` (Supabase),
+  `local-driver.js` (modo preview)
+- `js/services/` — metadados de página, busca e sugestão de categoria
+- `js/ui/` — shell/roteador, telas, masonry, diálogos, paleta de comandos, auth
