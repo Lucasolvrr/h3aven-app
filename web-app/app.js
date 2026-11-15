@@ -8,6 +8,12 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { detectSessionInUrl: true, persistSession: true, autoRefreshToken: true },
 });
 
+// TEMPORÁRIO: pula a tela de login (voltar pra false quando o login for corrigido).
+// Sem sessão real, as consultas ao Supabase rodam como anônimas e o RLS devolve
+// tudo vazio — pra ver seus dados de verdade, entre uma vez com email e senha.
+const BYPASS_LOGIN = true;
+const BYPASS_SESSION = { user: { email: 'bypass@h3aven.local' }, refresh_token: '' };
+
 const loginView = document.getElementById('login-view');
 const appView = document.getElementById('app-view');
 const loginForm = document.getElementById('login-form');
@@ -243,6 +249,7 @@ function renderRoute() {
 let isPasswordRecovery = false;
 
 function handleSession(session) {
+  if (!session && BYPASS_LOGIN && !isPasswordRecovery) session = BYPASS_SESSION;
   currentSession = session;
   if (isPasswordRecovery && session) {
     loginView.classList.add('hidden');
