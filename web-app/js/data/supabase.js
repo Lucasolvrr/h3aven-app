@@ -6,7 +6,8 @@ let clientPromise;
 
 export function getSupabase() {
   if (!clientPromise) {
-    clientPromise = import('https://esm.sh/@supabase/supabase-js@2')
+    // Pinned: a floating "@2" would pick up new releases without a deploy.
+    clientPromise = import('https://esm.sh/@supabase/supabase-js@2.119.0')
       .then(({ createClient }) =>
         createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
           auth: { detectSessionInUrl: true, persistSession: true, autoRefreshToken: true },

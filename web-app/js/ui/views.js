@@ -20,6 +20,7 @@ import { importButton, previewStatus } from './import.js';
 import { previews } from '../services/importer.js';
 import { selection } from './selection.js';
 import { openMenu, toast, attempt } from './overlay.js';
+import { PASSWORD_MIN, hasPassword } from './auth.js';
 import {
   openBookmark, openLink, toggleFavorite, openQuickAdd, openCategoryDialog, confirmDeleteCategory,
   openFolderDialog, confirmDeleteFolder, openMediaSearch,
@@ -681,13 +682,43 @@ function settingsView(ctx) {
     return form;
   };
 
+  // Current password (when there is one), new, and confirm.
+  const passwordForm = () => {
+    const needsCurrent = hasPassword(state.user);
+    const input = (placeholder, autocomplete) => h('input', { class: 'input', type: 'password', placeholder, 'aria-label': placeholder, required: true, autocomplete, minlength: autocomplete === 'new-password' ? String(PASSWORD_MIN) : null });
+    const current = needsCurrent ? input('Current password', 'current-password') : null;
+    const next = input('New password', 'new-password');
+    const confirm = input('Confirm new password', 'new-password');
+    const button = h('button', { type: 'submit', class: 'btn btn-subtle' }, needsCurrent ? 'Update' : 'Set password');
+    const form = h('form', { class: 'set-form set-form-stack' }, current, next, confirm, button);
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!form.reportValidity()) return;
+      if (next.value !== confirm.value) {
+        toast('The new passwords do not match.', { type: 'error' });
+        return confirm.focus();
+      }
+      button.disabled = true;
+      const ok = await attempt(() => ctx.updatePassword({ current: current?.value, password: next.value }), 'Password updated');
+      button.disabled = false;
+      if (ok) for (const el of [current, next, confirm]) if (el) el.value = '';
+    });
+    return form;
+  };
+
   const starterMissing = STARTER_CATEGORIES.some((starter) => !state.categories.some((c) => c.name.toLowerCase() === starter.name.toLowerCase()));
 
   const account = cloud
     ? group(
         'Account',
-        row('Email', 'A confirmation is sent to the new address.', inlineForm({ type: 'email', value: state.user?.email || '', placeholder: 'you@example.com', label: 'Save', action: ctx.updateEmail, success: 'Check your new inbox to confirm the change' })),
-        row('Password', 'At least 6 characters.', inlineForm({ type: 'password', placeholder: 'New password', label: 'Update', action: ctx.updatePassword, success: 'Password updated' })),
+        row('Email', 'The change happens once you confirm it from the email we send. A link may also go to your current address.', inlineForm({ type: 'email', value: state.user?.email || '', placeholder: 'you@example.com', label: 'Save', action: ctx.updateEmail, success: 'Check your inbox to confirm the change' })),
+        row(
+          'Password',
+          hasPassword(state.user)
+            ? `At least ${PASSWORD_MIN} characters. Your other devices are signed out when it changes.`
+            : `You sign in with Google. Set a password to also sign in with your email (at least ${PASSWORD_MIN} characters).`,
+          passwordForm()
+        ),
         row('Sign out', state.user?.email, h('button', { type: 'button', class: 'btn btn-subtle', onClick: ctx.signOut }, iconEl('log-out', 15), 'Sign out'))
       )
     : group(
