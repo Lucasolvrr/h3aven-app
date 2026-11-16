@@ -13,12 +13,10 @@ import { openQuickAdd, openCategoryDialog, confirmDeleteCategory, openFolderDial
 import { mountSearchDock, parseChips } from './searchdock.js';
 import { openPalette } from './palette.js';
 
+// Home lists everything, newest first; Favorites is the one shortcut on top of it.
 const WORKSPACE = [
-  { key: 'home', href: '#/', icon: 'home', label: 'Home' },
-  { key: 'inbox', href: '#/inbox', icon: 'inbox', label: 'Inbox', count: (c) => c.inbox },
-  { key: 'recent', href: '#/recent', icon: 'clock', label: 'Recently Saved' },
+  { key: 'home', href: '#/', icon: 'home', label: 'Home', count: (c) => c.all },
   { key: 'favorites', href: '#/favorites', icon: 'heart', label: 'Favorites', count: (c) => c.favorites },
-  { key: 'all', href: '#/all', icon: 'grid', label: 'All Bookmarks', count: (c) => c.all },
 ];
 
 function safeDecode(part) {
@@ -31,7 +29,8 @@ function safeDecode(part) {
 
 export function parseRoute() {
   const [head, a, b, ...rest] = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(safeDecode);
-  if (['inbox', 'recent', 'favorites', 'all'].includes(head)) return { name: 'list', list: head, key: head };
+  if (head === 'favorites') return { name: 'list', list: head, key: head };
+  // #/inbox, #/recent and #/all were folded into Home; old links land there.
   if (head === 'c' && a) return { name: 'category', categoryId: a, subId: b || null, key: `c:${a}:${b || ''}`, page: `c:${a}:${b ? 'folder' : ''}` };
   if (head === 'library') return { name: 'library', tab: a || '', key: `library:${a || ''}` };
   if (head === 'search') return { name: 'search', chips: parseChips([a, b, ...rest].filter(Boolean)), key: 'search' };
@@ -76,12 +75,8 @@ export function mountShell(app) {
     { class: 'topbar' },
     h('button', { type: 'button', class: 'icon-btn topbar-menu', 'aria-label': 'Open navigation', 'aria-controls': 'sidebar', onClick: () => setDrawer(true) }, iconEl('menu', 18)),
     crumbs,
-    viewActions,
-    h(
-      'div',
-      { class: 'topbar-actions' },
-      h('button', { type: 'button', class: 'btn btn-primary topbar-new', 'aria-label': 'New bookmark', onClick: () => quickAdd() }, iconEl('plus', 15), h('span', null, 'New'))
-    )
+    // Creating lives in the search dock's + button, so the bar only holds page actions.
+    viewActions
   );
   const view = h('div', { class: 'view', id: 'view' });
   const scroller = h('div', { class: 'main-scroll' }, topbar, view);

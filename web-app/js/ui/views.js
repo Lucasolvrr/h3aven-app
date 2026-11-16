@@ -6,7 +6,9 @@
 import { STORAGE } from '../config.js';
 import { h, plural, copyText } from '../lib/dom.js';
 import { iconEl } from '../lib/icons.js';
-import { folderColor, colorVars } from '../lib/colors.js';
+import { siteGroups, inSiteGroup } from '../lib/sites.js';
+import { faviconFor } from '../lib/url.js';
+import { folderColor, colorVars, FOLDER_COLORS } from '../lib/colors.js';
 import { state, select, sortBookmarks, SORTS, displayName, addStarterCategories } from '../data/store.js';
 import { STARTER_CATEGORIES } from '../data/sample.js';
 import { filterBookmarks } from '../services/organize.js';
@@ -60,10 +62,19 @@ function emptyState({ icon, title, text, action }) {
   return h(
     'div',
     { class: 'empty' },
-    h('div', { class: 'empty-icon' }, iconEl(icon, 20)),
+    // The same frosted folder as the folder cards, empty but for two blank
+    // sheets, with the page's icon on its flap.
+    h(
+      'div',
+      { class: 'folder empty-art', 'aria-hidden': 'true', style: colorVars(FOLDER_COLORS[0]) },
+      h('div', { class: 'folder-back' }),
+      h('div', { class: 'folder-paper' }),
+      h('div', { class: 'folder-paper' }),
+      h('div', { class: 'folder-front' }, iconEl(icon, 22))
+    ),
     h('p', { class: 'empty-title' }, title),
     text && h('p', { class: 'empty-text' }, text),
-    action && h('button', { type: 'button', class: 'btn btn-subtle', onClick: action.onClick }, action.icon && iconEl(action.icon, 15), action.label)
+    action && h('button', { type: 'button', class: 'btn btn-subtle btn-lg', onClick: action.onClick }, action.icon && iconEl(action.icon, 15), action.label)
   );
 }
 
@@ -111,8 +122,8 @@ function sectionControls(sortable) {
 }
 
 /** A titled masonry of bookmarks with Select and Sort, or an empty state. */
-function gridSection({ title, items, key, sortable = true, empty, extra }) {
-  if (!items.length) return h('section', { class: 'section' }, empty);
+function gridSection({ title, items, key, sortable = true, empty, extra, lead }) {
+  if (!items.length && !lead) return h('section', { class: 'section' }, empty);
   const sorted = sortable ? sortBookmarks(items, sortMode) : items;
   return h(
     'section',
@@ -120,10 +131,10 @@ function gridSection({ title, items, key, sortable = true, empty, extra }) {
     h(
       'div',
       { class: 'section-head' },
-      h('h2', { class: 'section-title' }, title, h('span', { class: 'count' }, items.length.toLocaleString('en-US'))),
+      lead || h('h2', { class: 'section-title' }, title, h('span', { class: 'count' }, items.length.toLocaleString('en-US'))),
       h('div', { class: 'section-actions' }, extra, sectionControls(sortable))
     ),
-    mountGrid(sorted, `${key}:${sortable ? sortMode : ''}`)
+    items.length ? mountGrid(sorted, `${key}:${sortable ? sortMode : ''}`) : empty
   );
 }
 
@@ -180,20 +191,77 @@ function greeting() {
   return 'Good evening';
 }
 
-function quickItem({ href, icon, label, count }) {
-  return h(
-    'a',
-    { class: 'quick-item', href },
-    iconEl(icon, 16),
-    h('span', { class: 'quick-label' }, label),
-    count !== undefined && h('span', { class: 'quick-count' }, count.toLocaleString('en-US'))
+// --- home: site filters --------------------------------------------------------------
+
+let homeSite = 'all'; // the site filter on Home; kept while the app is open
+let siteScroll = 0;
+
+/** A row of pills: All, then each site with how many links come from it. */
+function siteFilters(bookmarks) {
+  const groups = siteGroups(bookmarks);
+  if (homeSite !== 'all' && !groups.some((g) => g.key === homeSite)) homeSite = 'all';
+
+  const pill = (key, label, count, icon) =>
+    h(
+      'button',
+      {
+        type: 'button', class: 'site-pill', 'aria-pressed': String(homeSite === key), dataset: { site: key },
+        onClick: () => {
+          if (homeSite === key) return;
+          homeSite = key;
+          siteScroll = track.scrollLeft;
+          rerender();
+        },
+      },
+      icon,
+      h('span', null, label),
+      h('span', { class: 'count' }, count.toLocaleString('en-US'))
+    );
+  const favicon = (group) => {
+    const img = h('img', { class: 'site-pill-icon', src: group.favicon || faviconFor(group.domain), alt: '', referrerpolicy: 'no-referrer', loading: 'lazy' });
+    img.addEventListener('error', () => img.remove());
+    return img;
+  };
+
+  const track = h(
+    'div',
+    { class: 'site-track', role: 'toolbar', 'aria-label': 'Filter by site' },
+    pill('all', 'All', bookmarks.length),
+    groups.map((group) => pill(group.key, group.label, group.count, group.domain ? favicon(group) : iconEl('globe', 14)))
   );
+  const scrollBy = (direction) => track.scrollBy({ left: direction * track.clientWidth * 0.7, behavior: 'smooth' });
+  const back = h('button', { type: 'button', class: 'site-more is-back', 'aria-label': 'Scroll sites back', onClick: () => scrollBy(-1) }, iconEl('chevron-left', 16));
+  const more = h('button', { type: 'button', class: 'site-more', 'aria-label': 'More sites', onClick: () => scrollBy(1) }, iconEl('chevron-right', 16));
+  const root = h('div', { class: 'site-filters' }, back, track, more);
+
+  // The arrows and the fades only show where there is more to scroll to.
+  const paint = () => {
+    const start = track.scrollLeft > 2;
+    const end = track.scrollLeft + track.clientWidth < track.scrollWidth - 2;
+    root.classList.toggle('has-before', start);
+    root.classList.toggle('has-after', end);
+    siteScroll = track.scrollLeft;
+  };
+  track.addEventListener('scroll', paint, { passive: true });
+  new ResizeObserver(paint).observe(track);
+  requestAnimationFrame(() => {
+    track.scrollLeft = siteScroll;
+    paint();
+  });
+  return root;
+}
+
+/** Home's bookmarks under the chosen site filter. */
+function homeItems() {
+  const all = select.bookmarks();
+  if (homeSite === 'all') return all;
+  const group = siteGroups(all).find((g) => g.key === homeSite);
+  return group ? all.filter((b) => inSiteGroup(b, group)) : all;
 }
 
 function homeView(ctx) {
   const counts = select.counts();
   const name = displayName();
-  const recent = sortBookmarks(select.bookmarks(), 'saved').slice(0, 96);
 
   return {
     title: 'Home',
@@ -206,27 +274,11 @@ function homeView(ctx) {
         title: counts.all ? `${plural(counts.all, 'bookmark')} in your library.` : 'Your library starts here.',
       }),
       notices(ctx),
-      h(
-        'section',
-        { class: 'section' },
-        h('div', { class: 'section-head' }, h('h2', { class: 'section-title' }, 'Quick access')),
-        h(
-          'nav',
-          { class: 'quick', 'aria-label': 'Quick access' },
-          quickItem({ href: '#/recent', icon: 'clock', label: 'Recently Saved' }),
-          quickItem({ href: '#/favorites', icon: 'heart', label: 'Favorites', count: counts.favorites }),
-          quickItem({ href: '#/inbox', icon: 'inbox', label: 'Inbox', count: counts.inbox }),
-          state.categories.map((category) =>
-            quickItem({ href: `#/c/${category.id}`, icon: category.icon, label: category.name, count: counts.category.get(category.id) || 0 })
-          )
-        )
-      ),
       gridSection({
-        title: 'Recent bookmarks',
-        items: recent,
-        key: 'home',
-        sortable: false,
-        extra: counts.all > recent.length && h('a', { class: 'btn btn-ghost', href: '#/all' }, 'View all'),
+        title: 'Bookmarks',
+        lead: counts.all ? siteFilters(select.bookmarks()) : null,
+        items: homeItems(),
+        key: `home:${homeSite}`,
         empty: emptyState({
           icon: 'bookmark',
           title: 'Nothing saved yet',
@@ -238,36 +290,14 @@ function homeView(ctx) {
   };
 }
 
-// --- inbox / recent / favorites / all ---------------------------------------------------
+// --- favorites ---------------------------------------------------
 
 const LISTS = {
-  inbox: {
-    label: 'Inbox',
-    sub: 'New links land here. File them when you have a minute — nothing gets lost in the meantime.',
-    items: () => select.inbox(),
-    empty: { icon: 'inbox', title: 'Inbox zero', text: 'Links saved without a category wait here until you organize them.' },
-  },
-  recent: {
-    label: 'Recently Saved',
-    sub: 'Everything from the last 30 days, newest first.',
-    sortable: false,
-    items: () => {
-      const since = new Date(Date.now() - 30 * 86400000).toISOString();
-      return sortBookmarks(select.bookmarks().filter((b) => b.createdAt > since), 'saved');
-    },
-    empty: { icon: 'clock', title: 'Nothing new in the last 30 days', text: 'Recently saved links show up here automatically.' },
-  },
   favorites: {
     label: 'Favorites',
     sub: 'The references you keep coming back to, from every category.',
     items: () => select.favorites(),
     empty: { icon: 'heart', title: 'No favorites yet', text: 'Tap the heart on a bookmark and it is kept here.' },
-  },
-  all: {
-    label: 'All Bookmarks',
-    sub: 'Your whole library, across every category and the Inbox.',
-    items: () => select.bookmarks(),
-    empty: { icon: 'grid', title: 'Your library is empty', text: 'Save a link to get started.', action: { label: 'Add a bookmark', icon: 'plus', onClick: () => openQuickAdd() } },
   },
 };
 
@@ -458,15 +488,43 @@ function categoryView(route, ctx) {
 // --- library (movies / series / music) -----------------------------------------------------
 
 const LIBRARY_TABS = [
-  { key: '', label: 'All' },
   { key: 'movie', label: 'Movies' },
   { key: 'tv', label: 'Series' },
   { key: 'music', label: 'Music' },
 ];
 
+/**
+ * Items in rows, each row on its own glass shelf. Rows are cut by hand (not a
+ * wrapping grid) so every shelf spans its row; they are re-cut when the width
+ * changes the number that fit.
+ */
+function shelves(items, { min = 176 } = {}) {
+  const root = h('div', { class: 'shelves' });
+  let columns = 0;
+  const cut = () => {
+    if (!root.isConnected) return;
+    const style = getComputedStyle(root);
+    const gap = parseFloat(style.getPropertyValue('--shelf-gap')) || 28;
+    const inset = (parseFloat(style.getPropertyValue('--shelf-inset')) || 28) * 2;
+    const next = Math.max(2, Math.floor((root.clientWidth - inset + gap) / (min + gap)));
+    if (next === columns) return;
+    columns = next;
+    const rows = [];
+    for (let i = 0; i < items.length; i += columns) rows.push(items.slice(i, i + columns));
+    root.replaceChildren(
+      ...rows.map((row) => h('div', { class: 'shelf', style: `--cols:${columns}` }, h('div', { class: 'shelf-glass', 'aria-hidden': 'true' }), row))
+    );
+  };
+  const observer = new ResizeObserver(() => (root.isConnected ? cut() : observer.disconnect()));
+  observer.observe(root);
+  return root;
+}
+
 function libraryView(route, ctx) {
   const media = sortBookmarks(select.media(), 'saved');
-  const shown = route.tab ? media.filter((m) => m.contentType === route.tab) : media;
+  // No "All" tab: plain #/library opens on Movies.
+  const tab = LIBRARY_TABS.some((t) => t.key === route.tab) ? route.tab : LIBRARY_TABS[0].key;
+  const shown = media.filter((m) => m.contentType === tab);
   const add = h(
     'button',
     {
@@ -478,22 +536,30 @@ function libraryView(route, ctx) {
     'Add'
   );
 
+  // Each item stands on a glass shelf: the cover, its reflection on the glass,
+  // and the title shown over the cover on hover.
   const poster = (item) => {
+    const icon = item.contentType === 'music' ? 'music' : 'film';
     const art = h('div', { class: 'poster-art' });
+    const reflection = h('div', { class: 'poster-reflection', 'aria-hidden': 'true' });
     if (item.thumbnail) {
       const img = h('img', { src: item.thumbnail, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' });
-      img.addEventListener('error', () => img.replaceWith(h('div', { class: 'bm-fallback-icon' }, iconEl(item.contentType === 'music' ? 'music' : 'film', 20))));
+      img.addEventListener('error', () => {
+        img.replaceWith(h('div', { class: 'bm-fallback-icon' }, iconEl(icon, 20)));
+        reflection.remove();
+      });
       art.append(img);
+      reflection.style.backgroundImage = `url("${item.thumbnail.replace(/"/g, '%22')}")`;
     } else {
-      art.append(h('div', { class: 'bm-fallback-icon' }, iconEl(item.contentType === 'music' ? 'music' : 'film', 20)));
+      art.append(h('div', { class: 'bm-fallback-icon' }, iconEl(icon, 20)));
     }
     const subtitle = item.contentType === 'music' ? item.meta.artist : [item.meta.year, item.contentType === 'tv' ? 'Series' : 'Movie'].filter(Boolean).join(' · ');
+    art.append(h('div', { class: 'poster-caption' }, h('div', { class: 'poster-title' }, item.title), h('div', { class: 'poster-sub' }, subtitle || item.domain)));
     return h(
       'button',
-      { type: 'button', class: `poster${item.contentType === 'music' ? ' is-music' : ''}`, onClick: () => openBookmark(item.id) },
+      { type: 'button', class: `poster${item.contentType === 'music' ? ' is-music' : ''}`, title: item.title, 'aria-label': [item.title, subtitle].filter(Boolean).join(', '), onClick: (event) => openBookmark(item.id, { origin: event.currentTarget.querySelector('.poster-art'), sequence: () => shown.map((b) => b.id) }) },
       art,
-      h('div', { class: 'poster-title' }, item.title),
-      h('div', { class: 'poster-sub' }, subtitle || item.domain)
+      reflection
     );
   };
 
@@ -517,16 +583,16 @@ function libraryView(route, ctx) {
           h(
             'nav',
             { class: 'tabs', 'aria-label': 'Library type', style: 'margin:0;padding:0' },
-            LIBRARY_TABS.map((tab) =>
-              h('a', { class: `tab${tab.key === route.tab ? ' is-active' : ''}`, href: `#/library${tab.key ? `/${tab.key}` : ''}`, 'aria-current': tab.key === route.tab ? 'page' : null }, tab.label)
+            LIBRARY_TABS.map((t) =>
+              h('a', { class: `tab${t.key === tab ? ' is-active' : ''}`, href: `#/library/${t.key}`, 'aria-current': t.key === tab ? 'page' : null }, t.label)
             )
           ),
           add
         ),
         shown.length
-          ? h('div', { class: 'poster-grid' }, shown.map(poster))
+          ? shelves(shown.map(poster), { min: tab === 'music' ? 168 : 176 })
           : emptyState({
-              icon: 'film',
+              icon: { movie: 'film', tv: 'tv', music: 'music' }[tab],
               title: media.length ? 'Nothing of this type yet' : 'Your library is empty',
               text: state.mode === 'cloud' ? 'Search for a movie, a series or a song and add it here.' : 'Sign in to search TMDB and Spotify and build your watch and listen list.',
             })

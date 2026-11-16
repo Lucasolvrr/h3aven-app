@@ -377,18 +377,42 @@ export function openQuickAdd({ url = '', categoryId = null, subcategoryId = null
 
 const MEDIA_LABEL = { movie: 'Movie', tv: 'Series', music: 'Music' };
 
+/** Up to 8 other bookmarks to suggest next to `bookmark`: same folder first, then
+ *  same category; an Inbox link gets ones from the same site or with a shared tag. */
+function relatedTo(bookmark) {
+  let pool;
+  if (bookmark.isMedia) pool = select.media().filter((b) => b.contentType === bookmark.contentType);
+  else if (bookmark.categoryId) {
+    pool = [...(bookmark.subcategoryId ? select.inSubcategory(bookmark.subcategoryId) : []), ...select.inCategory(bookmark.categoryId)];
+  } else {
+    pool = select.bookmarks().filter((b) => (b.domain && b.domain === bookmark.domain) || b.tags.some((tag) => bookmark.tags.includes(tag)));
+  }
+  const seen = new Set([bookmark.id]);
+  const unique = pool.filter((b) => !seen.has(b.id) && seen.add(b.id));
+  // Keep folder-first order, but within it prefer ones with a preview image.
+  return unique
+    .map((b, index) => ({ b, rank: index + (b.thumbnail ? 0 : 1000) }))
+    .sort((a, b) => a.rank - b.rank)
+    .slice(0, 8)
+    .map((entry) => entry.b);
+}
+
 /**
- * The bookmark viewer: the page's preview centred over a blurred backdrop, and
- * a quiet side panel with what we know about the link.
+ * The bookmark viewer: one centred column over a near-black backdrop —
+ * the title and actions on top, the page's preview large in the middle and
+ * everything else (where it lives, site, notes, tags, more like this) below.
  * sequence(): ids of the list it was opened from, for the previous / next arrows.
  */
-export function openBookmark(id, { sequence = null } = {}) {
+/** origin: the element that was clicked (a cover); the preview grows out of it. */
+export function openBookmark(id, { sequence = null, origin = null } = {}) {
   if (!select.byId(id)) return;
   let currentId = id;
+  let editing = false;
 
-  const panel = h('aside', { class: 'viewer-panel' });
+  const header = h('header', { class: 'viewer-header' });
   const stage = h('div', { class: 'viewer-stage' });
-  const backdrop = h('div', { class: 'viewer-backdrop', 'aria-hidden': 'true' });
+  const info = h('div', { class: 'viewer-info' });
+  const column = h('div', { class: 'viewer-col' }, header, stage, info);
 
   const ids = () => (sequence ? sequence().filter((value) => select.byId(value)) : []);
   const step = (delta) => {
@@ -402,13 +426,16 @@ export function openBookmark(id, { sequence = null } = {}) {
   const modal = openModal({
     className: 'viewer',
     label: 'Bookmark',
-    content: [backdrop, panel, stage],
-    onClose: () => unsubscribe(),
+    content: column,
+    onClose: () => {
+      unsubscribe();
+      modal.panel.dispatchEvent(new Event('viewer-closed'));
+    },
   });
 
-  // Clicking the blurred area around the preview closes, as with any lightbox.
-  stage.addEventListener('click', (event) => {
-    if (event.target === stage) modal.close();
+  // A click on the dark area around the column closes, as with any lightbox.
+  modal.panel.addEventListener('click', (event) => {
+    if (event.target === modal.panel || event.target === column) modal.close();
   });
   modal.panel.addEventListener('keydown', (event) => {
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
@@ -416,134 +443,30 @@ export function openBookmark(id, { sequence = null } = {}) {
     else if (event.key === 'ArrowRight') step(1);
   });
 
-  // Edits made elsewhere (or by this panel) repaint it in place.
-  let editing = false;
+  // Edits made elsewhere (or here) repaint in place.
   const unsubscribe = subscribe(() => {
     if (!select.byId(currentId)) return modal.close();
     const active = document.activeElement;
-    // Don't repaint under someone typing in the panel (tags, notes, the edit form).
-    if (editing || (panel.contains(active) && /^(INPUT|TEXTAREA)$/.test(active.tagName))) return;
-    const focusKey = panel.contains(active) ? active.dataset.key : null;
+    // Don't repaint under someone typing (tags, notes, the edit form).
+    if (editing || (column.contains(active) && /^(INPUT|TEXTAREA)$/.test(active.tagName))) return;
+    const focusKey = column.contains(active) ? active.dataset.key : null;
     render({ keepStage: true });
-    if (focusKey) panel.querySelector(`[data-key="${focusKey}"]`)?.focus({ preventScroll: true });
+    if (focusKey) column.querySelector(`[data-key="${focusKey}"]`)?.focus({ preventScroll: true });
   });
 
   function render({ direction = 0, keepStage = false } = {}) {
     const bookmark = select.byId(currentId);
     if (!bookmark) return;
-    modal.panel.setAttribute('aria-label', bookmark.title || bookmark.domain || 'Bookmark');
+    const label = bookmark.title || bookmark.domain || bookmark.url;
+    modal.panel.setAttribute('aria-label', label);
     const list = ids();
     const index = list.indexOf(currentId);
 
-    // --- stage: the preview, centred, over a blur of itself -------------------------
-    if (!keepStage) {
-      const thumb = bookmark.thumbnail;
-      backdrop.style.backgroundImage = thumb ? `url("${thumb.replace(/"/g, '%22')}")` : 'none';
-      let shot;
-      if (thumb) {
-        shot = h('img', { class: 'viewer-shot', src: thumb, alt: `Preview of ${bookmark.title || bookmark.domain}`, referrerpolicy: 'no-referrer' });
-        shot.addEventListener('error', () => shot.replaceWith(h('div', { class: 'viewer-shot is-fallback' }, fallbackTile(bookmark))));
-      } else {
-        shot = h('div', { class: 'viewer-shot is-fallback' }, fallbackTile(bookmark));
-      }
-      const link = h('a', { class: 'viewer-shot-link', href: bookmark.url, target: '_blank', rel: 'noopener noreferrer', title: 'Open link', onClick: () => markOpened(currentId) }, shot);
-      stage.replaceChildren(link);
-      if (direction && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        link.animate([{ opacity: 0, transform: `translateX(${direction * 24}px) scale(0.985)` }, { opacity: 1, transform: 'none' }], { duration: 240, easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)' });
-      }
-    }
+    // --- header: title, then the actions -----------------------------------------------
+    const iconButton = (name, text, onClick, extra = {}) =>
+      h('button', { type: 'button', class: `viewer-icon${extra.class ? ` ${extra.class}` : ''}`, 'aria-label': text, title: text, onClick, ...extra.attrs }, iconEl(name, 16));
 
-    // --- panel ------------------------------------------------------------------------
-    const navButton = (icon, label, delta, disabled) =>
-      h('button', { type: 'button', class: 'viewer-icon', 'aria-label': label, title: label, disabled, onClick: () => step(delta) }, iconEl(icon, 16));
-    const favorite = h(
-      'button',
-      {
-        type: 'button', class: `viewer-icon${bookmark.isFavorite ? ' is-on' : ''}`, 'aria-pressed': String(bookmark.isFavorite), dataset: { key: 'favorite' },
-        'aria-label': bookmark.isFavorite ? 'Remove from favorites' : 'Add to favorites', title: bookmark.isFavorite ? 'Remove from favorites' : 'Add to favorites',
-        onClick: () => attempt(() => setFavorite([currentId], !bookmark.isFavorite)),
-      },
-      iconEl('heart', 16)
-    );
-    const top = h(
-      'div',
-      { class: 'viewer-top' },
-      h('button', { type: 'button', class: 'viewer-icon', 'aria-label': 'Close', title: 'Close', onClick: () => modal.close() }, iconEl('x', 16)),
-      h(
-        'div',
-        { class: 'viewer-top-actions' },
-        favorite,
-        list.length > 1 && navButton('arrow-left', 'Previous', -1, index <= 0),
-        list.length > 1 && navButton('arrow-right', 'Next', 1, index < 0 || index >= list.length - 1)
-      )
-    );
-
-    const icon = h('div', { class: 'viewer-favicon' });
-    const faviconSrc = bookmark.favicon || faviconFor(bookmark.domain);
-    if (faviconSrc) {
-      const img = h('img', { src: faviconSrc, alt: '', referrerpolicy: 'no-referrer' });
-      img.addEventListener('error', () => icon.replaceChildren((bookmark.domain || '?').charAt(0).toUpperCase()));
-      icon.append(img);
-    } else icon.append((bookmark.domain || '?').charAt(0).toUpperCase());
-
-    const place = bookmark.isMedia ? MEDIA_LABEL[bookmark.contentType] : select.locationLabel(bookmark);
-    const head = h(
-      'div',
-      { class: 'viewer-head' },
-      icon,
-      h('p', { class: 'viewer-eyebrow' }, place),
-      h('h2', { class: 'viewer-title' }, bookmark.title || bookmark.domain || bookmark.url),
-      bookmark.description && h('p', { class: 'viewer-desc' }, bookmark.description),
-      bookmark.selectedText && h('blockquote', { class: 'viewer-quote' }, bookmark.selectedText),
-      h('p', { class: 'viewer-when' }, timeAgo(bookmark.createdAt) || formatDate(bookmark.createdAt))
-    );
-
-    const row = (label, value, extra = {}) => h('div', { class: `viewer-row${extra.stack ? ' is-stacked' : ''}` }, h('dt', null, label), h('dd', null, value));
-
-    const placeButton = h('button', { type: 'button', class: 'viewer-value-btn', 'aria-haspopup': 'menu', title: 'Move to…', dataset: { key: 'place' } }, h('span', null, select.locationLabel(bookmark)), iconEl('chevron-down', 13));
-    placeButton.addEventListener('click', () => openMoveMenu(placeButton, [currentId], { align: 'end' }));
-
-    const tags = tagEditor({
-      tags: bookmark.tags,
-      onChange: async (names) => {
-        await attempt(() => setTags(currentId, names));
-      },
-    });
-
-    const notes = h('textarea', { class: 'viewer-notes', placeholder: 'Add a note…', 'aria-label': 'Personal notes', rows: '2' });
-    notes.value = bookmark.notes;
-    notes.addEventListener('blur', async () => {
-      const value = notes.value.trim();
-      if (value !== bookmark.notes) await attempt(() => updateBookmark(currentId, { notes: value }), 'Notes saved');
-    });
-
-    const meta = [];
-    if (bookmark.isMedia) {
-      if (bookmark.meta.artist) meta.push(row('Artist', bookmark.meta.artist));
-      if (bookmark.meta.year) meta.push(row('Year', String(bookmark.meta.year)));
-    }
-    const facts = h(
-      'dl',
-      { class: 'viewer-facts' },
-      row('Site', h('a', { href: bookmark.url, target: '_blank', rel: 'noopener noreferrer', onClick: () => markOpened(currentId) }, bookmark.domain || 'Link')),
-      !bookmark.isMedia && row('Saved in', placeButton),
-      ...meta,
-      row('Saved', formatDate(bookmark.createdAt)),
-      row('Last opened', bookmark.lastAccessedAt ? timeAgo(bookmark.lastAccessedAt) : 'Never'),
-      row('Tags', tags.el, { stack: true }),
-      row('Notes', notes, { stack: true })
-    );
-
-    const copy = async () => toast((await copyText(bookmark.url)) ? 'Link copied' : 'Could not copy the link', { type: 'info' });
-    const remove = async () => {
-      const yes = await confirmDialog({
-        title: 'Delete this bookmark?',
-        message: `“${bookmark.title || bookmark.domain}” will be removed from your library. This can't be undone.`,
-      });
-      if (yes) await attempt(() => deleteBookmarks([currentId]), 'Bookmark deleted');
-    };
-    const more = h('button', { type: 'button', class: 'viewer-icon is-boxed', 'aria-label': 'More actions', title: 'More actions', 'aria-haspopup': 'menu' }, iconEl('more', 16));
-    more.addEventListener('click', () =>
+    const more = iconButton('more', 'More actions', () =>
       openMenu(
         more,
         [
@@ -553,19 +476,159 @@ export function openBookmark(id, { sequence = null } = {}) {
           { label: 'Delete', icon: 'trash', danger: true, onSelect: remove },
         ],
         { align: 'end' }
+      ),
+      { attrs: { 'aria-haspopup': 'menu', dataset: { key: 'more' } } }
+    );
+    const copy = async () => toast((await copyText(bookmark.url)) ? 'Link copied' : 'Could not copy the link', { type: 'info' });
+    const remove = async () => {
+      const yes = await confirmDialog({ title: 'Delete this bookmark?', message: `“${label}” will be removed from your library. This can't be undone.` });
+      if (yes) await attempt(() => deleteBookmarks([currentId]), 'Bookmark deleted');
+    };
+
+    header.replaceChildren(
+      h('h2', { class: 'viewer-title' }, label),
+      h(
+        'div',
+        { class: 'viewer-actions' },
+        list.length > 1 && iconButton('arrow-left', 'Previous', () => step(-1), { attrs: { disabled: index <= 0, dataset: { key: 'prev' } } }),
+        list.length > 1 && iconButton('arrow-right', 'Next', () => step(1), { attrs: { disabled: index < 0 || index >= list.length - 1, dataset: { key: 'next' } } }),
+        iconButton('heart', bookmark.isFavorite ? 'Remove from favorites' : 'Add to favorites', () => attempt(() => setFavorite([currentId], !bookmark.isFavorite)), {
+          class: bookmark.isFavorite ? 'is-on' : '',
+          attrs: { 'aria-pressed': String(bookmark.isFavorite), dataset: { key: 'favorite' } },
+        }),
+        more,
+        iconButton('arrow-up-right', 'Open link', () => openLink(bookmark), { class: 'is-primary', attrs: { dataset: { key: 'open' } } }),
+        iconButton('x', 'Close', () => modal.close(), { class: 'is-quiet' })
       )
     );
-    const foot = h(
+
+    // --- stage: the preview, large ----------------------------------------------------
+    if (!keepStage) {
+      let shot;
+      if (bookmark.thumbnail) {
+        shot = h('img', { class: 'viewer-shot', src: bookmark.thumbnail, alt: `Preview of ${label}`, referrerpolicy: 'no-referrer' });
+        shot.addEventListener('error', () => shot.replaceWith(h('div', { class: 'viewer-shot is-fallback' }, fallbackTile(bookmark))));
+        // Posters, covers and portrait images are shown whole; wide page previews fill the column.
+        shot.addEventListener('load', () => stage.classList.toggle('is-fit', bookmark.isMedia || shot.naturalHeight > shot.naturalWidth * 1.05));
+      } else {
+        shot = h('div', { class: 'viewer-shot is-fallback' }, fallbackTile(bookmark));
+      }
+      const link = h('a', { class: 'viewer-shot-link', href: bookmark.url, target: '_blank', rel: 'noopener noreferrer', title: 'Open link', onClick: () => markOpened(currentId) }, shot);
+      stage.classList.toggle('is-fit', Boolean(bookmark.isMedia));
+      stage.replaceChildren(link);
+      if (direction && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        link.animate([{ opacity: 0, transform: `translateX(${direction * 24}px) scale(0.99)` }, { opacity: 1, transform: 'none' }], { duration: 240, easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)' });
+      }
+      modal.panel.scrollTo({ top: 0 });
+      if (origin) {
+        zoomFrom(origin, shot);
+        origin = null; // only the first opening grows out of the cover
+      }
+    }
+
+    // --- info: pills, description, tags + notes, more like this --------------------------
+    const pill = (content, extra = {}) => h(extra.href ? 'a' : 'button', { class: 'viewer-pill', ...(extra.href ? {} : { type: 'button' }), ...extra }, content);
+    const favicon = h('img', { class: 'viewer-pill-favicon', src: bookmark.favicon || faviconFor(bookmark.domain), alt: '', referrerpolicy: 'no-referrer' });
+    favicon.addEventListener('error', () => favicon.remove());
+
+    const place = bookmark.isMedia
+      ? h('span', { class: 'viewer-pill is-static' }, MEDIA_LABEL[bookmark.contentType])
+      : pill(
+          [
+            iconEl(bookmark.categoryId ? select.category(bookmark.categoryId)?.icon || 'folder' : 'inbox', 14),
+            h('span', null, select.locationLabel(bookmark)),
+            bookmark.tags.length > 0 && h('span', { class: 'viewer-pill-muted' }, `· ${plural(bookmark.tags.length, 'tag')}`),
+            iconEl('chevron-down', 13),
+          ],
+          { 'aria-haspopup': 'menu', title: 'Folder and tags', dataset: { key: 'place' }, onClick: (event) => openPlaceMenu(event.currentTarget, bookmark) }
+        );
+    const live = pill([h('span', { class: 'viewer-pill-muted' }, 'Live at'), favicon, h('span', null, bookmark.domain || 'link')], {
+      href: bookmark.url, target: '_blank', rel: 'noopener noreferrer', onClick: () => markOpened(currentId),
+    });
+    const when = [`Saved ${timeAgo(bookmark.createdAt) || formatDate(bookmark.createdAt)}`, bookmark.lastAccessedAt ? `opened ${timeAgo(bookmark.lastAccessedAt)}` : 'never opened'];
+    if (bookmark.isMedia && bookmark.meta.year) when.unshift(String(bookmark.meta.year));
+    if (bookmark.isMedia && bookmark.meta.artist) when.unshift(bookmark.meta.artist);
+
+    const meta = h('div', { class: 'viewer-meta' }, h('div', { class: 'viewer-pills' }, place, live), h('p', { class: 'viewer-when' }, when.join(' · ')));
+    const intro = (bookmark.description || bookmark.selectedText) && h(
       'div',
-      { class: 'viewer-foot' },
-      h('button', { type: 'button', class: 'btn btn-primary btn-lg', onClick: () => openLink(bookmark) }, 'Open link', iconEl('arrow-up-right', 15)),
-      more
+      { class: 'viewer-intro' },
+      bookmark.description && h('p', { class: 'viewer-desc' }, bookmark.description),
+      bookmark.selectedText && h('blockquote', { class: 'viewer-quote' }, bookmark.selectedText)
     );
 
-    panel.replaceChildren(top, h('div', { class: 'viewer-body' }, head, facts), foot);
+    const related = relatedTo(bookmark);
+    const relatedSection =
+      related.length > 0 &&
+      h(
+        'section',
+        // Covers keep their own shape: square albums, tall posters.
+        { class: `viewer-related${bookmark.isMedia ? (bookmark.contentType === 'music' ? ' is-square' : ' is-poster') : ''}` },
+        h('h3', { class: 'viewer-related-title' }, 'More like this'),
+        h(
+          'div',
+          { class: 'viewer-related-grid' },
+          related.map((item) => {
+            const name = item.title || item.domain || item.url;
+            const tile = h('button', {
+              type: 'button', class: 'viewer-related-item', title: name, 'aria-label': `Open ${name}`,
+              onClick: () => {
+                currentId = item.id;
+                render({ direction: 1 });
+              },
+            });
+            if (item.thumbnail) {
+              const img = h('img', { src: item.thumbnail, alt: '', loading: 'lazy', referrerpolicy: 'no-referrer' });
+              img.addEventListener('error', () => img.replaceWith(fallbackTile(item)));
+              tile.append(img);
+            } else tile.append(fallbackTile(item));
+            return tile;
+          })
+        )
+      );
+
+    info.replaceChildren(meta, intro || '', relatedSection || '');
   }
 
-  /** Swaps the head of the panel for a small form. */
+  /**
+   * One menu for where the bookmark lives: pick its folder (one place), and
+   * tick its tags on or off (any number), or type a new one.
+   */
+  function openPlaceMenu(anchor, bookmark) {
+    let tags = [...bookmark.tags];
+    const move = (categoryId, subcategoryId, label) => () =>
+      attempt(() => moveBookmarks([currentId], categoryId, subcategoryId), `Moved to ${label}`);
+    const here = (categoryId, subcategoryId) => bookmark.categoryId === categoryId && (bookmark.subcategoryId || null) === subcategoryId;
+    const toggleTag = (name) => (on) => {
+      tags = on ? [...tags, name] : tags.filter((tag) => tag.toLowerCase() !== name.toLowerCase());
+      attempt(() => setTags(currentId, tags));
+    };
+
+    const items = [{ heading: 'Saved in' }, { label: 'Inbox', icon: 'inbox', checked: !bookmark.categoryId, onSelect: move(null, null, 'Inbox') }];
+    for (const category of state.categories) {
+      items.push({ label: category.name, icon: category.icon, checked: here(category.id, null), onSelect: move(category.id, null, category.name) });
+      for (const sub of select.subsOf(category.id)) {
+        items.push({ label: sub.name, indent: true, checked: here(category.id, sub.id), onSelect: move(category.id, sub.id, `${category.name} / ${sub.name}`) });
+      }
+    }
+    const names = [...new Set([...tags, ...select.tagNames()])];
+    items.push({ separator: true }, { heading: 'Tags' });
+    for (const name of names) items.push({ label: name, checkbox: true, checked: tags.includes(name), onSelect: toggleTag(name) });
+    items.push({
+      input: {
+        placeholder: 'New tag…',
+        onSubmit: (value) => {
+          const [name] = cleanTagNames([value]);
+          if (!name || tags.some((tag) => tag.toLowerCase() === name.toLowerCase())) return null;
+          toggleTag(name)(true);
+          return { label: name, checkbox: true, checked: true, onSelect: toggleTag(name) };
+        },
+      },
+    });
+    openMenu(anchor, items);
+  }
+
+  /** Swaps the title and description for a small form. */
   function editText(bookmark) {
     editing = true;
     const titleField = h('input', { class: 'input', type: 'text', 'aria-label': 'Title', value: bookmark.title });
@@ -587,8 +650,42 @@ export function openBookmark(id, { sequence = null } = {}) {
       const ok = await attempt(() => updateBookmark(currentId, { title: titleField.value.trim(), description: descField.value.trim() }), 'Bookmark updated');
       if (ok) done();
     });
-    panel.querySelector('.viewer-head').replaceWith(form);
+    info.querySelector('.viewer-intro')?.remove();
+    info.querySelector('.viewer-meta').after(form);
     titleField.focus();
+  }
+
+  /**
+   * The cover that was clicked grows into the preview: the preview starts at
+   * the cover's place and size and glides to its own, while the rest of the
+   * viewer fades in around it. The cover itself is hidden until the viewer closes.
+   */
+  function zoomFrom(source, target) {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const from = source.getBoundingClientRect();
+    if (!from.width) return;
+    const play = () => {
+      const to = target.getBoundingClientRect();
+      if (!to.width || !to.height) return;
+      source.style.visibility = 'hidden';
+      const restore = () => (source.style.visibility = '');
+      modal.panel.addEventListener('viewer-closed', restore, { once: true });
+      const dx = from.left - to.left;
+      const dy = from.top - to.top;
+      target.animate(
+        [
+          { transformOrigin: 'top left', transform: `translate(${dx}px, ${dy}px) scale(${from.width / to.width}, ${from.height / to.height})`, borderRadius: '16px' },
+          { transformOrigin: 'top left', transform: 'none' },
+        ],
+        { duration: 560, easing: 'cubic-bezier(0.22, 1, 0.36, 1)' }
+      );
+      for (const part of [header, info]) {
+        part.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 320, delay: 200, easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)', fill: 'backwards' });
+      }
+    };
+    // The preview needs its final size first: a cached cover has it at once.
+    if (target.tagName !== 'IMG' || (target.complete && target.naturalWidth)) requestAnimationFrame(play);
+    else target.addEventListener('load', () => requestAnimationFrame(play), { once: true });
   }
 
   render();

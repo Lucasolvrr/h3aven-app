@@ -1,25 +1,5 @@
-/* Content components: quick access, folders, tabs, masonry + bookmark cards,
+/* Content components: folders, tabs, masonry + bookmark cards,
    library posters, bulk bar. Overlays live in overlays.css. */
-
-/* --- Quick access -------------------------------------------------------------- */
-
-.quick { display: grid; grid-template-columns: repeat(auto-fill, minmax(172px, 1fr)); gap: 8px; }
-.quick-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 44px;
-  padding: 0 12px;
-  border-radius: 10px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  color: var(--text-2);
-  font-size: 13px;
-  transition: background var(--fast), color var(--fast), border-color var(--fast);
-}
-.quick-item:hover { background: var(--surface-2); color: var(--text); border-color: var(--border-strong); }
-.quick-item .quick-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
-.quick-item .quick-count { color: var(--text-3); font-size: 12px; font-variant-numeric: tabular-nums; }
 
 /* --- Folders (subcategories) ---------------------------------------------------- */
 
@@ -185,6 +165,28 @@
 .tab:hover { background: rgba(255, 255, 255, 0.05); color: var(--text); }
 .tab.is-active { background: var(--surface-2); color: var(--text); }
 .tab .count { color: var(--text-3); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+
+/* --- Home site filters -------------------------------------------------------------- */
+
+.site-filters { position: relative; display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+.site-track { display: flex; gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
+.site-track::-webkit-scrollbar { display: none; }
+.site-filters.has-after .site-track { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent); }
+.site-filters.has-before .site-track { -webkit-mask-image: linear-gradient(to right, transparent, #000 48px); mask-image: linear-gradient(to right, transparent, #000 48px); }
+.site-filters.has-before.has-after .site-track { -webkit-mask-image: linear-gradient(to right, transparent, #000 48px, #000 calc(100% - 48px), transparent); mask-image: linear-gradient(to right, transparent, #000 48px, #000 calc(100% - 48px), transparent); }
+.site-pill { flex: none; display: inline-flex; align-items: center; gap: 8px; height: 38px; padding: 0 15px; border-radius: 999px; color: var(--text-2); font-size: 14px; font-weight: 500; white-space: nowrap; transition: background var(--fast), color var(--fast); }
+.site-pill:hover { background: rgba(255, 255, 255, 0.05); color: var(--text); }
+.site-pill[aria-pressed='true'] { background: #fff; color: #111; }
+.site-pill .count { color: var(--text-3); font-size: 12px; font-weight: 400; font-variant-numeric: tabular-nums; }
+.site-pill[aria-pressed='true'] .count { color: rgba(0, 0, 0, 0.5); }
+.site-pill-icon { width: 15px; height: 15px; flex: none; border-radius: 4px; }
+.site-more { display: none; flex: none; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: rgba(255, 255, 255, 0.06); color: var(--text-2); transition: background var(--fast), color var(--fast); }
+.site-more:hover { background: rgba(255, 255, 255, 0.1); color: var(--text); }
+.site-filters.has-after .site-more:not(.is-back),
+.site-filters.has-before .site-more.is-back { display: grid; }
+.section-head:has(.site-filters) { gap: 16px; margin-bottom: 18px; }
+.section-head:has(.site-filters) .section-actions .btn { height: 38px; padding: 0 14px; border-radius: 999px; }
+.section-head:has(.site-filters) .section-actions .btn[aria-haspopup] { border: 1px solid rgba(255, 255, 255, 0.09); }
 
 /* --- Masonry ---------------------------------------------------------------------- */
 /* Cards are absolutely positioned by js/ui/masonry.js: each card goes to the
@@ -360,16 +362,59 @@
 
 /* --- Library (movies, series, music) ------------------------------------------------ */
 
-.poster-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(148px, 1fr)); gap: 18px 14px; }
-.poster { display: block; text-align: left; cursor: pointer; }
-.poster-art { position: relative; overflow: hidden; aspect-ratio: 2 / 3; border-radius: var(--radius-lg); background: var(--surface); }
+/* Library shelves: each row of covers stands on a strip of glass that catches
+   a soft, fading reflection of them. */
+.shelves { --shelf-gap: 28px; --shelf-inset: 28px; --shelf-height: 44px; --shelf-sink: 7px; display: grid; gap: 40px; }
+.shelf { position: relative; display: grid; grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr)); align-items: end; column-gap: var(--shelf-gap); padding: 0 var(--shelf-inset) calc(var(--shelf-height) - var(--shelf-sink)); }
+.shelf-glass {
+  /* Same family as the workspace: a hair lighter than the background, a soft
+     top edge where light catches the glass, and a shade below. No tint. */
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--shelf-height);
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 55%, rgba(255, 255, 255, 0.012) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.035),
+    0 18px 30px -22px rgba(0, 0, 0, 0.8);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  pointer-events: none;
+}
+.poster { position: relative; z-index: 1; display: block; text-align: left; cursor: pointer; }
+.poster-art { position: relative; overflow: hidden; aspect-ratio: 2 / 3; border-radius: 16px; background: var(--surface); box-shadow: 0 10px 22px -12px rgba(0, 0, 0, 0.7); transition: transform 260ms var(--ease); }
 .poster.is-music .poster-art { aspect-ratio: 1; }
-.poster-art::after { content: ''; position: absolute; inset: 0; border-radius: inherit; border: 1px solid rgba(255, 255, 255, 0.07); }
-.poster-art img { width: 100%; height: 100%; object-fit: cover; transition: transform 500ms var(--ease); }
-.poster:hover .poster-art img { transform: scale(1.035); }
+.poster-art::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08); pointer-events: none; }
+.poster-art img { width: 100%; height: 100%; object-fit: cover; }
+.poster:hover .poster-art,
+.poster:focus-visible .poster-art { transform: translateY(-4px); }
 .poster-art .bm-fallback-icon { position: absolute; inset: 0; margin: auto; }
-.poster-title { margin-top: 8px; font-size: 13px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.poster-sub { font-size: 12px; color: var(--text-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The reflection: the bottom of the cover, flipped, fading into the glass. */
+.poster-reflection {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  height: calc(var(--shelf-height, 54px) - var(--shelf-sink, 18px) - 6px);
+  margin-top: 2px;
+  border-radius: 16px 16px 0 0;
+  background: center bottom / 100% auto no-repeat;
+  transform: scaleY(-1);
+  opacity: 0.32;
+  filter: blur(1.5px) saturate(1.2);
+  -webkit-mask-image: linear-gradient(to top, #000, transparent);
+  mask-image: linear-gradient(to top, #000, transparent);
+  transition: transform 260ms var(--ease), opacity 260ms var(--ease);
+}
+.poster:hover .poster-reflection { opacity: 0.22; }
+.poster-caption { position: absolute; left: 0; right: 0; bottom: 0; padding: 34px 12px 11px; background: linear-gradient(to top, rgba(0, 0, 0, 0.8), transparent); opacity: 0; transition: opacity var(--fast); }
+.poster:hover .poster-caption,
+.poster:focus-visible .poster-caption { opacity: 1; }
+.poster-title { color: #fff; font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.poster-sub { margin-top: 1px; color: rgba(255, 255, 255, 0.7); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* --- Search dock (js/ui/searchdock.js) ---------------------------------------------
    A glass bar fixed at the bottom centre of the workspace. At rest it hugs its
@@ -425,7 +470,7 @@
 .dock.is-creating .dock-create .icon { transform: rotate(45deg); }
 .dock-lead { flex: none; color: var(--text-2); }
 .dock-input {
-  width: 19ch;
+  width: 24ch;
   min-width: 96px;
   height: 36px;
   padding: 0;
@@ -438,7 +483,42 @@
   text-overflow: ellipsis;
 }
 .dock-input::placeholder { color: #9a9aa2; }
+.dock-field { position: relative; display: flex; min-width: 0; }
+.dock.is-open .dock-field { flex: 1; }
 .dock.is-open .dock-input { flex: 1; width: auto; }
+
+/* Live placeholder: "Search" + a word that changes. Each word arrives through a
+   short blur while a chromatic edge sweeps across it, leaving it the usual
+   placeholder grey. */
+@property --ph-sweep {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: -14%;
+}
+.dock-ph { position: absolute; inset: 0; display: flex; align-items: center; gap: 0.28em; color: #9a9aa2; font-size: 16px; white-space: nowrap; overflow: hidden; pointer-events: none; }
+.dock-ph[hidden] { display: none; }
+.dock-ph-slot { display: inline-flex; min-width: 0; }
+.dock-ph-word {
+  --ph-fg: #9a9aa2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: transparent;
+  background-image: linear-gradient(90deg,
+    var(--ph-fg) 0%,
+    var(--ph-fg) calc(var(--ph-sweep) - 14%),
+    #60a5fa calc(var(--ph-sweep) - 14%),
+    #818cf8 calc(var(--ph-sweep) - 7%),
+    #c084fc var(--ph-sweep),
+    #fb7185 calc(var(--ph-sweep) + 7%),
+    #fbbf24 calc(var(--ph-sweep) + 14%),
+    transparent calc(var(--ph-sweep) + 14%),
+    transparent 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: ph-sweep 1200ms cubic-bezier(0.65, 0, 0.35, 1) forwards, ph-arrive 360ms cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@keyframes ph-sweep { from { --ph-sweep: -14%; } to { --ph-sweep: 114%; } }
+@keyframes ph-arrive { from { opacity: 0.56; filter: blur(6px); transform: translateY(5px); } }
 
 .dock-chips { position: relative; display: flex; align-items: center; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
 .dock-chips::-webkit-scrollbar { display: none; }
@@ -510,16 +590,18 @@ button.chip:hover, a.chip:hover { background: var(--surface-hover); color: var(-
 }
 
 @media (max-width: 767px) {
-  .quick { display: flex; margin: 0 calc(var(--gutter) * -1); padding: 0 var(--gutter); overflow-x: auto; scrollbar-width: none; }
-  .quick::-webkit-scrollbar { display: none; }
-  .quick-item { flex: none; min-width: 148px; }
+  .section-head:has(.site-filters) { flex-wrap: wrap; }
+  .section-head:has(.site-filters) .site-filters { flex-basis: 100%; }
+  .site-more { display: none !important; }
 
   .folders { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
   .folder-menu { opacity: 1; }
 
   .skeleton-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 
-  .poster-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 10px; }
+  .shelves { --shelf-gap: 14px; --shelf-inset: 14px; --shelf-height: 34px; --shelf-sink: 5px; gap: 28px; }
+  .shelf-glass { border-radius: 12px; }
+  .poster-art { border-radius: 12px; }
   .bulkbar { bottom: max(14px, env(safe-area-inset-bottom)); max-width: calc(100vw - 16px); }
   .dock { bottom: max(12px, env(safe-area-inset-bottom)); width: calc(100% - 20px); }
   .mtabs { margin: 0 8px; padding: 0 6px 6px; border-radius: 24px; }

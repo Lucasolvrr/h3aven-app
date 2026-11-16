@@ -2,9 +2,12 @@
 
 import { APP_NAME } from '../config.js';
 import { h } from '../lib/dom.js';
+import { iconEl } from '../lib/icons.js';
 import { createAsciiField } from './ascii.js';
+import { openModal } from './overlay.js';
 
-let screen = null;
+let screen = null; // full-screen version (when there is no app to go back to)
+let sheet = null; // modal version, over the app
 
 // Google's "G", as its sign-in guidelines ask for on a Google button.
 const GOOGLE_G =
@@ -13,10 +16,23 @@ const GOOGLE_G =
 export function hideAuth() {
   screen?.remove();
   screen = null;
+  const open = sheet;
+  sheet = null;
+  open?.close();
 }
 
-function mount(card) {
+/**
+ * dismissible: the app stays usable without an account, so sign-in is a modal
+ * over it (Escape, a click outside or the × close it). Otherwise — password
+ * recovery, or a build without preview mode — it takes the whole screen.
+ */
+function mount(card, { dismissible = false } = {}) {
   hideAuth();
+  if (dismissible) {
+    card.prepend(h('button', { type: 'button', class: 'icon-btn auth-close', 'aria-label': 'Close', title: 'Close', onClick: hideAuth }, iconEl('x', 16)));
+    sheet = openModal({ className: 'auth-modal', label: 'Sign in', content: card, onClose: () => (sheet = null) });
+    return;
+  }
   const field = createAsciiField({ seed: 4 });
   screen = h('div', { class: 'auth' }, field, card);
   field.start();
@@ -24,7 +40,7 @@ function mount(card) {
   card.querySelector('input')?.focus();
 }
 
-/** onPreview: when given, shows "Continue without an account". */
+/** onPreview: when given, the app can be used without an account, so this opens as a closable modal. */
 export function showAuth({ supabase, onPreview }) {
   let mode = 'signin';
   const title = h('h1', { class: 'auth-title' });
@@ -39,7 +55,7 @@ export function showAuth({ supabase, onPreview }) {
   const paint = () => {
     const signin = mode === 'signin';
     title.textContent = signin ? 'Welcome back' : 'Create your account';
-    sub.textContent = signin ? 'Sign in to open your library on this device.' : 'One library for every browser and device.';
+    sub.textContent = signin ? 'Sign in to sync your library across devices.' : 'One library for every browser and device.';
     submit.textContent = signin ? 'Sign in' : 'Create account';
     toggle.textContent = signin ? 'Create an account' : 'I already have an account';
     password.setAttribute('autocomplete', signin ? 'current-password' : 'new-password');
@@ -105,8 +121,9 @@ export function showAuth({ supabase, onPreview }) {
       form,
       status,
       h('div', { class: 'auth-links' }, toggle, forgot),
-      onPreview && h('button', { type: 'button', class: 'btn btn-ghost btn-block', onClick: onPreview }, 'Continue without an account')
-    )
+      !onPreview && h('p', { class: 'auth-note' }, 'Your bookmarks sync between this app and the extension.')
+    ),
+    { dismissible: Boolean(onPreview) }
   );
 }
 

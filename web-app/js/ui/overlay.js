@@ -91,38 +91,60 @@ export function closeMenu() {
  * items: { label, icon, onSelect, danger, checked, hint, indent, disabled }
  *        | { separator: true } | { heading: 'Text' } | null (skipped)
  */
+/**
+ * items: { label, icon, hint, onSelect, danger, indent, disabled, checked }
+ *   checkbox: true  — a toggle; the menu stays open and onSelect(checked) gets the new state
+ *   input: { placeholder, onSubmit(value) } — a text field; onSubmit may return an item to add above it
+ *   heading / separator
+ */
 export function openMenu(anchor, items, { align = 'start' } = {}) {
   closeMenu();
   const menu = h('div', { class: 'menu', role: 'menu' });
 
-  for (const item of items) {
-    if (!item) continue;
-    if (item.separator) {
-      menu.append(h('div', { class: 'menu-sep', role: 'separator' }));
-    } else if (item.heading) {
-      menu.append(h('div', { class: 'menu-label' }, item.heading));
-    } else {
-      menu.append(
-        h(
-          'button',
-          {
-            type: 'button',
-            role: 'menuitem',
-            class: `menu-item${item.danger ? ' is-danger' : ''}${item.indent ? ' is-indent' : ''}`,
-            disabled: item.disabled,
-            onClick: () => {
-              closeMenu();
-              item.onSelect?.();
-            },
-          },
-          item.icon && iconEl(item.icon, 15),
-          h('span', { class: 'menu-text' }, item.label),
-          item.hint && h('span', { class: 'menu-hint' }, item.hint),
-          item.checked && iconEl('check', 14)
-        )
-      );
+  const renderItem = (item) => {
+    if (item.separator) return h('div', { class: 'menu-sep', role: 'separator' });
+    if (item.heading) return h('div', { class: 'menu-label' }, item.heading);
+    if (item.input) {
+      const field = h('input', { class: 'menu-input', type: 'text', placeholder: item.input.placeholder, 'aria-label': item.input.placeholder, autocomplete: 'off', maxlength: '40' });
+      const row = h('label', { class: 'menu-input-row' }, iconEl('plus', 14), field);
+      field.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        const value = field.value.trim();
+        if (!value) return;
+        field.value = '';
+        const added = item.input.onSubmit(value);
+        if (added) row.before(renderItem(added));
+      });
+      return row;
     }
-  }
+    const button = h(
+      'button',
+      {
+        type: 'button',
+        role: item.checkbox ? 'menuitemcheckbox' : 'menuitem',
+        'aria-checked': item.checkbox ? String(Boolean(item.checked)) : null,
+        class: `menu-item${item.danger ? ' is-danger' : ''}${item.indent ? ' is-indent' : ''}${item.checkbox ? ' is-checkbox' : ''}`,
+        disabled: item.disabled,
+        onClick: () => {
+          if (item.checkbox) {
+            const next = button.getAttribute('aria-checked') !== 'true';
+            button.setAttribute('aria-checked', String(next));
+            item.onSelect?.(next);
+            return;
+          }
+          closeMenu();
+          item.onSelect?.();
+        },
+      },
+      item.checkbox ? h('span', { class: 'menu-box', 'aria-hidden': 'true' }, iconEl('check', 11)) : item.icon && iconEl(item.icon, 15),
+      h('span', { class: 'menu-text' }, item.label),
+      item.hint && h('span', { class: 'menu-hint' }, item.hint),
+      !item.checkbox && item.checked && iconEl('check', 14, 'menu-tick')
+    );
+    return button;
+  };
+  for (const item of items) if (item) menu.append(renderItem(item));
 
   document.body.append(menu);
   const rect = anchor.getBoundingClientRect();

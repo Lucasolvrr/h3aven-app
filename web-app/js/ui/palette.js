@@ -21,10 +21,7 @@ const go = (hash) => () => {
 function commands(context) {
   const list = [
     { id: 'nav:home', group: 'Navigate', label: 'Home', icon: 'home', run: go('#/') },
-    { id: 'nav:inbox', group: 'Navigate', label: 'Inbox', icon: 'inbox', hint: String(select.counts().inbox || ''), run: go('#/inbox') },
-    { id: 'nav:recent', group: 'Navigate', label: 'Recently Saved', icon: 'clock', run: go('#/recent') },
     { id: 'nav:favorites', group: 'Navigate', label: 'Favorites', icon: 'heart', run: go('#/favorites') },
-    { id: 'nav:all', group: 'Navigate', label: 'All Bookmarks', icon: 'grid', run: go('#/all') },
     { id: 'nav:library', group: 'Navigate', label: 'Library', icon: 'library', hint: 'Movies, series, music', run: go('#/library') },
     { id: 'nav:settings', group: 'Navigate', label: 'Settings', icon: 'settings', run: go('#/settings') },
   ];
@@ -51,14 +48,6 @@ function commands(context) {
   }
 
   list.push(
-    {
-      id: 'act:organize', group: 'Actions', label: 'Organize Inbox', icon: 'check-square', hint: 'Select and move in bulk',
-      run: () => {
-        location.hash = '#/inbox';
-        selection.setMode(true);
-      },
-    },
-    { id: 'act:recent', group: 'Actions', label: 'Open Recently Saved', icon: 'clock', run: go('#/recent') },
     { id: 'act:sidebar', group: 'Actions', label: 'Toggle sidebar', icon: 'panel-left', run: context.toggleSidebar }
   );
   return list;

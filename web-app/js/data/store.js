@@ -239,7 +239,8 @@ export const select = {
 };
 
 export const SORTS = {
-  saved: { label: 'Recently saved', compare: (a, b) => (b.createdAt || '').localeCompare(a.createdAt || '') },
+  saved: { label: 'Newest first', compare: (a, b) => (b.createdAt || '').localeCompare(a.createdAt || '') },
+  oldest: { label: 'Oldest first', compare: (a, b) => (a.createdAt || '').localeCompare(b.createdAt || '') },
   updated: { label: 'Recently updated', compare: (a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || '') },
   alpha: {
     label: 'Alphabetical',

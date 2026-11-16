@@ -63,6 +63,68 @@ const chipKey = (chip) => (chip.kind === 'term' ? `t:${chip.value.toLowerCase()}
 const readRecents = () => readJson(STORAGE.recentSearches, []).filter((item) => typeof item === 'string').slice(0, MAX_RECENTS);
 const writeRecents = (list) => writeJson(STORAGE.recentSearches, list.slice(0, MAX_RECENTS));
 
+// --- live placeholder ------------------------------------------------------------------
+// "Search" stays put while the word after it changes: each new word is
+// revealed by a soft chromatic edge sweeping across it (see .dock-ph-word).
+
+const FALLBACK_WORDS = ['design systems', 'typography', 'articles', 'inspiration', 'tools'];
+const SWEEP_MS = 1200;
+const REST_MS = 1900;
+
+/** Words to suggest: the user's own folders, categories and tags, shuffled. */
+function suggestionWords() {
+  const pool = [
+    ...state.subcategories.map((sub) => sub.name),
+    ...state.categories.map((category) => category.name),
+    ...select.tagNames().slice(0, 12),
+  ]
+    .map((word) => word.toLowerCase())
+    .filter((word, index, list) => word.length <= 22 && list.indexOf(word) === index);
+  const words = pool.length >= 3 ? pool : FALLBACK_WORDS;
+  for (let i = words.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [words[i], words[j]] = [words[j], words[i]];
+  }
+  return words;
+}
+
+function livePlaceholder() {
+  const slot = h('span', { class: 'dock-ph-slot' });
+  const el = h('span', { class: 'dock-ph', 'aria-hidden': 'true', hidden: true }, h('span', { class: 'dock-ph-prefix' }, 'Search'), slot);
+  let words = [];
+  let index = 0;
+  let timer = 0;
+  const api = { el, active: false };
+
+  const show = () => {
+    if (!words.length || index >= words.length) {
+      words = suggestionWords();
+      index = 0;
+    }
+    // A fresh element restarts the CSS sweep from the left.
+    slot.replaceChildren(h('span', { class: 'dock-ph-word' }, words[index]));
+    index += 1;
+    timer = setTimeout(tick, SWEEP_MS + REST_MS);
+  };
+  const tick = () => {
+    if (!api.active) return;
+    if (document.hidden) {
+      timer = setTimeout(tick, 1000);
+      return;
+    }
+    show();
+  };
+
+  api.toggle = (on) => {
+    if (on === api.active) return;
+    api.active = on;
+    el.hidden = !on;
+    clearTimeout(timer);
+    if (on) show();
+  };
+  return api;
+}
+
 // --- the dock ------------------------------------------------------------------------
 
 /**
@@ -87,7 +149,9 @@ export function mountSearchDock(host, { getRoute, onLiveQuery, createActions }) 
     'aria-describedby': 'dock-hint',
   });
   const chipRow = h('div', { class: 'dock-chips' });
-  const bar = h('div', { class: 'dock-bar glass' }, iconEl('search', 20, 'dock-lead'), chipRow, input);
+  const hint = livePlaceholder();
+  const field = h('span', { class: 'dock-field' }, input, hint.el);
+  const bar = h('div', { class: 'dock-bar glass' }, iconEl('search', 20, 'dock-lead'), chipRow, field);
   const announcer = h('span', { class: 'sr-only', 'aria-live': 'polite' });
   const createBtn = h(
     'button',
@@ -162,7 +226,11 @@ export function mountSearchDock(host, { getRoute, onLiveQuery, createActions }) 
       el.classList.toggle('is-marked', marked === key);
     }
     chipRow.classList.toggle('has-chips', chips.length > 0);
-    input.placeholder = chips.length ? 'Add a filter' : 'Search your library';
+    // With no filters and an empty field, the placeholder is alive: it cycles
+    // through things in the library worth searching for.
+    const idle = !chips.length && !input.value;
+    hint.toggle(idle && !reducedMotion.matches);
+    input.placeholder = chips.length ? 'Add a filter' : hint.active ? '' : 'Search your library';
   }
 
   function navigate(next) {
@@ -486,6 +554,8 @@ export function mountSearchDock(host, { getRoute, onLiveQuery, createActions }) 
   input.addEventListener('focus', () => setOpen(true));
   input.addEventListener('click', () => setOpen(true));
   input.addEventListener('input', () => {
+    hint.toggle(!chips.length && !input.value && !reducedMotion.matches);
+    if (!chips.length) input.placeholder = hint.active ? '' : 'Search your library';
     marked = null;
     mode = 'search'; // typing always means searching
     paintMode();
