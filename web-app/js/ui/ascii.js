@@ -1,3 +1,5 @@
+import { ambientMotion } from '../lib/dom.js';
+
 // ASCII field: the artwork behind page headers and the sign-in screen.
 //
 // A grid of monospace glyphs drawn on a canvas. A slow noise field decides
@@ -15,7 +17,6 @@ const GLOW_ALPHA = 0.5; // brightest a glyph gets under the pointer
 const GLOW_RADIUS = 150; // px
 const FRAME_MS = 1000 / 30;
 
-const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 function hash(x, y) {
   let n = Math.imul(x, 374761393) ^ Math.imul(y, 668265263);
@@ -84,7 +85,7 @@ export function createAsciiField({ seed = 0 } = {}) {
 
   function draw(now) {
     if (!cols) return;
-    const t = reducedMotion.matches ? 0 : now / 1000;
+    const t = ambientMotion() ? now / 1000 : 0;
     for (const bucket of buckets) bucket.length = 0;
 
     const px = pointer.x;
@@ -147,7 +148,7 @@ export function createAsciiField({ seed = 0 } = {}) {
       if (detachedFrames > 90) return stop();
     } else {
       detachedFrames = 0;
-      const still = reducedMotion.matches && !hasHeat();
+      const still = !ambientMotion() && !hasHeat();
       if (!document.hidden && !still && now - lastFrame >= FRAME_MS) {
         lastFrame = now;
         if (!cols) resize();

@@ -55,6 +55,17 @@ export function createCloudDriver(supabase) {
       return check(await supabase.from('links').insert(row).select().single());
     },
 
+    /** Many links in one request (imports). */
+    async insertLinks(rows) {
+      if (!rows.length) return [];
+      return check(await supabase.from('links').insert(rows).select());
+    },
+
+    async insertLinkTags(pairs) {
+      if (!pairs.length) return;
+      check(await supabase.from('link_tags').insert(pairs));
+    },
+
     async updateLinks(ids, patch) {
       if (!ids.length) return [];
       return check(await supabase.from('links').update(patch).in('id', ids).select());

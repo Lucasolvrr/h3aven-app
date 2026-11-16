@@ -12,7 +12,7 @@ import {
 import { fetchPreview, searchMedia } from '../services/metadata.js';
 import { suggestLocation } from '../services/organize.js';
 import { openModal, openMenu, toast, attempt, confirmDialog } from './overlay.js';
-import { fallbackTile } from './masonry.js';
+import { fallbackTile, knownRatio } from './masonry.js';
 
 // --- shared pieces ---------------------------------------------------------------
 
@@ -209,7 +209,7 @@ export function openQuickAdd({ url = '', categoryId = null, subcategoryId = null
   });
   const tags = tagEditor();
   const save = h('button', { type: 'submit', class: 'btn btn-primary' }, 'Save');
-  const titleInput = h('input', { class: 'qa-title', type: 'text', placeholder: 'Title', 'aria-label': 'Title' });
+  const titleInput = h('input', { class: 'qa-title', type: 'text', placeholder: 'Title…', 'aria-label': 'Title', autocomplete: 'off' });
   titleInput.addEventListener('input', () => (titleEdited = true));
 
   const form = h(
@@ -403,6 +403,22 @@ function relatedTo(bookmark) {
  * everything else (where it lives, site, notes, tags, more like this) below.
  * sequence(): ids of the list it was opened from, for the previous / next arrows.
  */
+// --- viewer <-> URL ----------------------------------------------------------------
+
+const VIEWER_MARK = '!b=';
+let activeViewer = null; // { close(fromUrl) } while a bookmark is open
+
+const pageHash = () => location.hash.split('!')[0] || '#/';
+export function viewerIdInUrl() {
+  const at = location.hash.indexOf(VIEWER_MARK);
+  return at < 0 ? null : decodeURIComponent(location.hash.slice(at + VIEWER_MARK.length));
+}
+export const isViewerOpen = () => Boolean(activeViewer);
+/** The URL lost its bookmark (Back): close without touching history again. */
+export function closeViewerFromUrl() {
+  activeViewer?.close(true);
+}
+
 /** origin: the element that was clicked (a cover); the preview grows out of it. */
 export function openBookmark(id, { sequence = null, origin = null } = {}) {
   if (!select.byId(id)) return;
@@ -423,15 +439,34 @@ export function openBookmark(id, { sequence = null, origin = null } = {}) {
     render({ direction: delta });
   };
 
+  // Opening adds a history entry, so Back closes the viewer; a link that
+  // already names the bookmark (shared, or reloaded) is used as it is.
+  let pushed = false;
+  if (viewerIdInUrl() !== id) {
+    history.pushState(null, '', `${pageHash()}${VIEWER_MARK}${encodeURIComponent(id)}`);
+    pushed = true;
+  }
+  let closedFromUrl = false;
+
   const modal = openModal({
     className: 'viewer',
     label: 'Bookmark',
     content: column,
     onClose: () => {
       unsubscribe();
+      activeViewer = null;
       modal.panel.dispatchEvent(new Event('viewer-closed'));
+      if (closedFromUrl) return;
+      if (pushed) history.back();
+      else history.replaceState(null, '', pageHash());
     },
   });
+  activeViewer = {
+    close(fromUrl) {
+      closedFromUrl = fromUrl;
+      modal.close();
+    },
+  };
 
   // A click on the dark area around the column closes, as with any lightbox.
   modal.panel.addEventListener('click', (event) => {
@@ -457,6 +492,7 @@ export function openBookmark(id, { sequence = null, origin = null } = {}) {
   function render({ direction = 0, keepStage = false } = {}) {
     const bookmark = select.byId(currentId);
     if (!bookmark) return;
+    if (viewerIdInUrl() !== currentId) history.replaceState(null, '', `${pageHash()}${VIEWER_MARK}${encodeURIComponent(currentId)}`);
     const label = bookmark.title || bookmark.domain || bookmark.url;
     modal.panel.setAttribute('aria-label', label);
     const list = ids();
@@ -481,7 +517,7 @@ export function openBookmark(id, { sequence = null, origin = null } = {}) {
     );
     const copy = async () => toast((await copyText(bookmark.url)) ? 'Link copied' : 'Could not copy the link', { type: 'info' });
     const remove = async () => {
-      const yes = await confirmDialog({ title: 'Delete this bookmark?', message: `“${label}” will be removed from your library. This can't be undone.` });
+      const yes = await confirmDialog({ title: 'Delete this bookmark?', message: `“${label}” will be removed from your library. This can’t be undone.` });
       if (yes) await attempt(() => deleteBookmarks([currentId]), 'Bookmark deleted');
     };
 
@@ -497,7 +533,7 @@ export function openBookmark(id, { sequence = null, origin = null } = {}) {
           attrs: { 'aria-pressed': String(bookmark.isFavorite), dataset: { key: 'favorite' } },
         }),
         more,
-        iconButton('arrow-up-right', 'Open link', () => openLink(bookmark), { class: 'is-primary', attrs: { dataset: { key: 'open' } } }),
+        iconButton('arrow-up-right', 'Open Link', () => openLink(bookmark), { class: 'is-primary', attrs: { dataset: { key: 'open' } } }),
         iconButton('x', 'Close', () => modal.close(), { class: 'is-quiet' })
       )
     );
@@ -506,14 +542,21 @@ export function openBookmark(id, { sequence = null, origin = null } = {}) {
     if (!keepStage) {
       let shot;
       if (bookmark.thumbnail) {
-        shot = h('img', { class: 'viewer-shot', src: bookmark.thumbnail, alt: `Preview of ${label}`, referrerpolicy: 'no-referrer' });
+        // Width and height reserve the preview's space before it loads (no jump):
+        // the ratio the grid remembered for this image, or the usual shape.
+        const ratio = knownRatio(bookmark.thumbnail) || (bookmark.isMedia ? (bookmark.contentType === 'music' ? 1 : 2 / 3) : 1.6);
+        shot = h('img', { class: 'viewer-shot', src: bookmark.thumbnail, alt: `Preview of ${label}`, referrerpolicy: 'no-referrer', width: '1200', height: String(Math.round(1200 / ratio)) });
         shot.addEventListener('error', () => shot.replaceWith(h('div', { class: 'viewer-shot is-fallback' }, fallbackTile(bookmark))));
         // Posters, covers and portrait images are shown whole; wide page previews fill the column.
-        shot.addEventListener('load', () => stage.classList.toggle('is-fit', bookmark.isMedia || shot.naturalHeight > shot.naturalWidth * 1.05));
+        shot.addEventListener('load', () => {
+          shot.width = shot.naturalWidth;
+          shot.height = shot.naturalHeight;
+          stage.classList.toggle('is-fit', bookmark.isMedia || shot.naturalHeight > shot.naturalWidth * 1.05);
+        });
       } else {
         shot = h('div', { class: 'viewer-shot is-fallback' }, fallbackTile(bookmark));
       }
-      const link = h('a', { class: 'viewer-shot-link', href: bookmark.url, target: '_blank', rel: 'noopener noreferrer', title: 'Open link', onClick: () => markOpened(currentId) }, shot);
+      const link = h('a', { class: 'viewer-shot-link', href: bookmark.url, target: '_blank', rel: 'noopener noreferrer', title: 'Open Link', onClick: () => markOpened(currentId) }, shot);
       stage.classList.toggle('is-fit', Boolean(bookmark.isMedia));
       stage.replaceChildren(link);
       if (direction && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -564,7 +607,7 @@ export function openBookmark(id, { sequence = null, origin = null } = {}) {
         'section',
         // Covers keep their own shape: square albums, tall posters.
         { class: `viewer-related${bookmark.isMedia ? (bookmark.contentType === 'music' ? ' is-square' : ' is-poster') : ''}` },
-        h('h3', { class: 'viewer-related-title' }, 'More like this'),
+        h('h3', { class: 'viewer-related-title' }, 'More Like This'),
         h(
           'div',
           { class: 'viewer-related-grid' },
@@ -631,8 +674,8 @@ export function openBookmark(id, { sequence = null, origin = null } = {}) {
   /** Swaps the title and description for a small form. */
   function editText(bookmark) {
     editing = true;
-    const titleField = h('input', { class: 'input', type: 'text', 'aria-label': 'Title', value: bookmark.title });
-    const descField = h('textarea', { class: 'textarea', 'aria-label': 'Description', placeholder: 'Description' });
+    const titleField = h('input', { class: 'input', type: 'text', 'aria-label': 'Title', value: bookmark.title, autocomplete: 'off' });
+    const descField = h('textarea', { class: 'textarea', 'aria-label': 'Description', placeholder: 'Description…' });
     descField.value = bookmark.description;
     const done = () => {
       editing = false;
@@ -765,7 +808,7 @@ export function openFolderDialog(categoryId, folder = null) {
 
   const input = h('input', { class: 'input', type: 'text', value: folder?.name || '', placeholder: 'e.g. Typography', autofocus: true, autocomplete: 'off', maxlength: '80' });
   const error = h('p', { class: 'field-error', hidden: true });
-  const submit = h('button', { type: 'submit', class: 'btn btn-primary' }, folder ? 'Save' : 'Create folder');
+  const submit = h('button', { type: 'submit', class: 'btn btn-primary' }, folder ? 'Save' : 'Create Folder');
   const swatches = h(
     'div',
     { class: 'swatches', role: 'radiogroup', 'aria-label': 'Folder color' },

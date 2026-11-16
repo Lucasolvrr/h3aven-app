@@ -45,19 +45,19 @@ export function showAuth({ supabase, onPreview }) {
   let mode = 'signin';
   const title = h('h1', { class: 'auth-title' });
   const sub = h('p', { class: 'auth-sub' });
-  const email = h('input', { class: 'input', type: 'email', placeholder: 'you@example.com', required: true, autocomplete: 'email', 'aria-label': 'Email' });
+  const email = h('input', { class: 'input', type: 'email', placeholder: 'you@example.com', required: true, autocomplete: 'email', spellcheck: 'false', 'aria-label': 'Email' });
   const password = h('input', { class: 'input', type: 'password', placeholder: 'Password', required: true, minlength: '6', 'aria-label': 'Password' });
   const submit = h('button', { type: 'submit', class: 'btn btn-primary btn-lg btn-block' });
   const status = h('p', { class: 'auth-status', role: 'status' });
   const toggle = h('button', { type: 'button', class: 'link-btn' });
-  const forgot = h('button', { type: 'button', class: 'link-btn' }, 'Forgot password?');
+  const forgot = h('button', { type: 'button', class: 'link-btn' }, 'Forgot Password?');
 
   const paint = () => {
     const signin = mode === 'signin';
     title.textContent = signin ? 'Welcome back' : 'Create your account';
     sub.textContent = signin ? 'Sign in to sync your library across devices.' : 'One library for every browser and device.';
     submit.textContent = signin ? 'Sign in' : 'Create account';
-    toggle.textContent = signin ? 'Create an account' : 'I already have an account';
+    toggle.textContent = signin ? 'Create an Account' : 'I Already Have an Account';
     password.setAttribute('autocomplete', signin ? 'current-password' : 'new-password');
     forgot.hidden = !signin;
     status.textContent = '';

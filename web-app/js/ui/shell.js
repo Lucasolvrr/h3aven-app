@@ -2,21 +2,21 @@
 // global shortcuts. Views are rendered by views.js; this file decides when.
 
 import { APP_NAME, STORAGE } from '../config.js';
-import { h, readJson, writeJson, plural } from '../lib/dom.js';
+import { h, readJson, writeJson, plural, formatNumber } from '../lib/dom.js';
 import { iconEl } from '../lib/icons.js';
-import { folderColor, colorVars } from '../lib/colors.js';
+import { folderColor, colorVars, tileColor, tileOf } from '../lib/colors.js';
 import { state, select, subscribe, displayName, setFavorite, deleteBookmarks, addTagToBookmarks, moveCategory } from '../data/store.js';
 import { renderView, grid } from './views.js';
 import { selection } from './selection.js';
 import { openMenu, hasOpenModal, attempt, confirmDialog, promptDialog } from './overlay.js';
-import { openQuickAdd, openCategoryDialog, confirmDeleteCategory, openFolderDialog, openMoveMenu, openMediaSearch } from './dialogs.js';
+import { openQuickAdd, openCategoryDialog, confirmDeleteCategory, openFolderDialog, openMoveMenu, openMediaSearch, openBookmark, viewerIdInUrl, isViewerOpen, closeViewerFromUrl } from './dialogs.js';
 import { mountSearchDock, parseChips } from './searchdock.js';
 import { openPalette } from './palette.js';
 
 // Home lists everything, newest first; Favorites is the one shortcut on top of it.
 const WORKSPACE = [
-  { key: 'home', href: '#/', icon: 'home', label: 'Home', count: (c) => c.all },
-  { key: 'favorites', href: '#/favorites', icon: 'heart', label: 'Favorites', count: (c) => c.favorites },
+  { key: 'home', href: '#/', icon: 'home', label: 'Home', count: (c) => c.all, tile: 'light' },
+  { key: 'favorites', href: '#/favorites', icon: 'heart', label: 'Favorites', count: (c) => c.favorites, tile: tileOf('pink') },
 ];
 
 function safeDecode(part) {
@@ -28,7 +28,10 @@ function safeDecode(part) {
 }
 
 export function parseRoute() {
-  const [head, a, b, ...rest] = location.hash.replace(/^#\/?/, '').split('/').filter(Boolean).map(safeDecode);
+  // Anything after "!" is an overlay on top of the page (the open bookmark), not part of the route.
+  const path = location.hash.split('!')[0];
+  const [head, a, b, ...rest] = path.replace(/^#\/?/, '').split('/').filter(Boolean).map(safeDecode);
+  if (head === 'site' && a) return { name: 'home', site: a, key: 'home' };
   if (head === 'favorites') return { name: 'list', list: head, key: head };
   // #/inbox, #/recent and #/all were folded into Home; old links land there.
   if (head === 'c' && a) return { name: 'category', categoryId: a, subId: b || null, key: `c:${a}:${b || ''}`, page: `c:${a}:${b ? 'folder' : ''}` };
@@ -81,9 +84,12 @@ export function mountShell(app) {
   const view = h('div', { class: 'view', id: 'view' });
   const scroller = h('div', { class: 'main-scroll' }, topbar, view);
   const main = h('main', { class: 'main' }, scroller);
+  const skip = h('button', { type: 'button', class: 'skip-link', onClick: () => view.focus() }, 'Skip to Content');
+  view.tabIndex = -1;
   const root = h(
     'div',
     { class: 'app' },
+    skip,
     sidebar,
     h('div', { class: 'scrim', onClick: () => setDrawer(false) }),
     main
@@ -155,18 +161,26 @@ export function mountShell(app) {
 
   // --- sidebar rendering -----------------------------------------------------------------
 
-  function row({ href, icon, label, count, active, chevron, more, child, tint }) {
+  /** An app-icon tile: the icon in white on a small square of colour. */
+  const tile = (icon, color) =>
+    h(
+      'span',
+      { class: `sb-tile${color === 'light' ? ' is-light' : ''}${color ? '' : ' is-neutral'}`, style: color && color !== 'light' ? colorVars(color) : null, 'aria-hidden': 'true' },
+      iconEl(icon, 13)
+    );
+
+  function row({ href, icon, label, count, active, chevron, more, child, tint, tile: color }) {
     return h(
       'div',
       { class: `sb-row${active ? ' is-active' : ''}${more ? ' has-more' : ''}`, dataset: { tip: label } },
       h(
         'a',
         { class: 'sb-link', href, 'aria-current': active ? 'page' : null },
-        child ? h('span', { class: 'sb-dot', 'aria-hidden': 'true', style: tint }) : iconEl(icon, 17),
+        child ? h('span', { class: 'sb-dot', 'aria-hidden': 'true', style: tint }) : tile(icon, color),
         h('span', { class: 'sb-label' }, label)
       ),
       chevron,
-      count ? h('span', { class: 'sb-count' }, count.toLocaleString('en-US')) : null,
+      count ? h('span', { class: 'sb-count' }, formatNumber(count)) : null,
       more
     );
   }
@@ -302,6 +316,7 @@ export function mountShell(app) {
         row({
           href: `#/c/${category.id}`,
           icon: category.icon,
+          tile: tileColor(index),
           label: category.name,
           count: counts.category.get(category.id),
           active: onCategory && !route.subId,
@@ -343,7 +358,7 @@ export function mountShell(app) {
       'div',
       { class: 'sb-section' },
       h('div', { class: 'sb-heading' }, h('span', null, 'Media')),
-      row({ href: '#/library', icon: 'library', label: 'Library', count: counts.media, active: activeKey === 'library' })
+      row({ href: '#/library', icon: 'library', label: 'Library', count: counts.media, active: activeKey === 'library', tile: tileOf('violet') })
     );
 
     nav.replaceChildren(pill, workspace, categories, media);
@@ -466,7 +481,7 @@ export function mountShell(app) {
         promptDialog({
           title: `Tag ${plural(ids.length, 'bookmark')}`,
           label: 'Tag name',
-          placeholder: 'e.g. inspiration',
+          placeholder: 'e.g. inspiration…',
           confirmLabel: 'Add tag',
           onSubmit: async (value) => {
             if (!value.trim()) throw new Error('Type a tag name.');
@@ -479,7 +494,7 @@ export function mountShell(app) {
         'trash',
         'Delete',
         async () => {
-          const yes = await confirmDialog({ title: `Delete ${plural(ids.length, 'bookmark')}?`, message: "They are removed from your library. This can't be undone." });
+          const yes = await confirmDialog({ title: `Delete ${plural(ids.length, 'bookmark')}?`, message: "They are removed from your library. This can’t be undone." });
           if (yes && (await attempt(() => deleteBookmarks(ids), `${plural(ids.length, 'bookmark')} deleted`))) done();
         },
         'btn-danger'
@@ -500,7 +515,15 @@ export function mountShell(app) {
     dock.sync(parseRoute(), lastHash);
     lastHash = location.hash;
     renderMain();
+    syncViewer();
   };
+
+  /** The open bookmark lives in the URL (#/route!b=<id>): back closes it, a shared link opens it. */
+  function syncViewer() {
+    const wanted = viewerIdInUrl();
+    if (!wanted && isViewerOpen()) closeViewerFromUrl();
+    else if (wanted && !isViewerOpen() && state.ready && select.byId(wanted)) openBookmark(wanted, { sequence: () => grid.items.map((b) => b.id) });
+  }
   subscribe(() => {
     selection.prune((id) => Boolean(select.byId(id)));
     renderAll();

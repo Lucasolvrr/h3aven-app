@@ -1,6 +1,8 @@
 // Small DOM helpers. No framework: the app is plain ES modules served as
 // static files, so these keep view code short and consistent.
 
+import { APP_LOCALE, STORAGE } from '../config.js';
+
 /**
  * h('button', { class: 'btn', onClick: fn, dataset: { id } }, 'Label')
  * - `class`, `style` (string), `dataset`, `html` (innerHTML) and `on*` are special
@@ -68,13 +70,31 @@ export function timeAgo(value) {
   return `${Math.floor(days / 365)}y ago`;
 }
 
+const dateFormat = new Intl.DateTimeFormat(APP_LOCALE, { month: 'short', day: 'numeric', year: 'numeric' });
+const numberFormat = new Intl.NumberFormat(APP_LOCALE);
+
 export function formatDate(value) {
   if (!value) return '—';
-  return new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  return dateFormat.format(new Date(value));
 }
 
+export const formatNumber = (count) => numberFormat.format(count);
+
 export function plural(count, one, many = `${one}s`) {
-  return `${count.toLocaleString('en-US')} ${count === 1 ? one : many}`;
+  return `${formatNumber(count)} ${count === 1 ? one : many}`;
+}
+
+/**
+ * Looping background motion (the ASCII field, the rotating search hint) runs
+ * unless the system asks for reduced motion or it was paused in Settings.
+ */
+export function ambientMotion() {
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+  try {
+    return localStorage.getItem(STORAGE.motion) !== 'off';
+  } catch {
+    return true;
+  }
 }
 
 export function readJson(key, fallback) {

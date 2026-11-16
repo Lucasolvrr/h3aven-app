@@ -10,7 +10,7 @@
 // be reloaded, bookmarked and walked through with back/forward.
 
 import { STORAGE } from '../config.js';
-import { h, readJson, writeJson, debounce } from '../lib/dom.js';
+import { h, readJson, writeJson, debounce, ambientMotion } from '../lib/dom.js';
 import { iconEl } from '../lib/icons.js';
 import { state, select } from '../data/store.js';
 
@@ -145,12 +145,14 @@ export function mountSearchDock(host, { getRoute, onLiveQuery, createActions }) 
 
   const input = h('input', {
     class: 'dock-input', type: 'text', role: 'combobox', autocomplete: 'off', spellcheck: 'false', enterkeyhint: 'search',
-    placeholder: 'Search your library', 'aria-label': 'Search your library', 'aria-expanded': 'false', 'aria-autocomplete': 'list',
+    placeholder: 'Search your library…', 'aria-label': 'Search your library', 'aria-expanded': 'false', 'aria-autocomplete': 'list',
     'aria-describedby': 'dock-hint',
   });
   const chipRow = h('div', { class: 'dock-chips' });
   const hint = livePlaceholder();
   const field = h('span', { class: 'dock-field' }, input, hint.el);
+  // Settings can pause looping motion; the rotating hint follows at once.
+  window.addEventListener('h3aven:motion', () => paintChips());
   const bar = h('div', { class: 'dock-bar glass' }, iconEl('search', 20, 'dock-lead'), chipRow, field);
   const announcer = h('span', { class: 'sr-only', 'aria-live': 'polite' });
   const createBtn = h(
@@ -229,8 +231,8 @@ export function mountSearchDock(host, { getRoute, onLiveQuery, createActions }) 
     // With no filters and an empty field, the placeholder is alive: it cycles
     // through things in the library worth searching for.
     const idle = !chips.length && !input.value;
-    hint.toggle(idle && !reducedMotion.matches);
-    input.placeholder = chips.length ? 'Add a filter' : hint.active ? '' : 'Search your library';
+    hint.toggle(idle && ambientMotion());
+    input.placeholder = chips.length ? 'Add a filter…' : hint.active ? '' : 'Search your library…';
   }
 
   function navigate(next) {
@@ -554,8 +556,8 @@ export function mountSearchDock(host, { getRoute, onLiveQuery, createActions }) 
   input.addEventListener('focus', () => setOpen(true));
   input.addEventListener('click', () => setOpen(true));
   input.addEventListener('input', () => {
-    hint.toggle(!chips.length && !input.value && !reducedMotion.matches);
-    if (!chips.length) input.placeholder = hint.active ? '' : 'Search your library';
+    hint.toggle(!chips.length && !input.value && ambientMotion());
+    if (!chips.length) input.placeholder = hint.active ? '' : 'Search your library…';
     marked = null;
     mode = 'search'; // typing always means searching
     paintMode();

@@ -130,6 +130,25 @@ export function createLocalDriver() {
       save();
     },
 
+    /** Many links at once (imports); a row may bring its own created_at. */
+    async insertLinks(rows) {
+      const records = rows.map((row) => ({
+        id: uid(), title: null, description: null, favicon_url: null, thumbnail_url: null, category_id: null, subcategory_id: null,
+        notes: null, selected_text: null, is_favorite: false, content_type: 'link', fetch_status: 'ready', metadata: {}, last_accessed_at: null,
+        ...row,
+        created_at: row.created_at || now(),
+        updated_at: row.created_at || now(),
+      }));
+      db.links.push(...records);
+      save();
+      return records;
+    },
+
+    async insertLinkTags(pairs) {
+      db.linkTags.push(...pairs);
+      save();
+    },
+
     async ensureTags(names) {
       const rows = names.map((name) => {
         let tag = db.tags.find((t) => t.name === name);

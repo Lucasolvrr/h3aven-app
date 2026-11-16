@@ -4,7 +4,7 @@
 // and images never reload.
 
 import { STORAGE } from '../config.js';
-import { h, plural, copyText } from '../lib/dom.js';
+import { h, plural, copyText, formatNumber, ambientMotion } from '../lib/dom.js';
 import { iconEl } from '../lib/icons.js';
 import { siteGroups, inSiteGroup } from '../lib/sites.js';
 import { faviconFor } from '../lib/url.js';
@@ -16,6 +16,8 @@ import { live, chipsToHash, chipLabel } from './searchdock.js';
 import { Masonry } from './masonry.js';
 import { heroField } from './ascii.js';
 import { morphingTabs, tabAddButton, forgetTabs } from './tabs.js';
+import { importButton, previewStatus } from './import.js';
+import { previews } from '../services/importer.js';
 import { selection } from './selection.js';
 import { openMenu, toast, attempt } from './overlay.js';
 import {
@@ -131,7 +133,7 @@ function gridSection({ title, items, key, sortable = true, empty, extra, lead })
     h(
       'div',
       { class: 'section-head' },
-      lead || h('h2', { class: 'section-title' }, title, h('span', { class: 'count' }, items.length.toLocaleString('en-US'))),
+      lead ? h('div', { class: 'section-lead' }, h('h2', { class: 'sr-only' }, title), lead) : h('h2', { class: 'section-title' }, title, h('span', { class: 'count' }, formatNumber(items.length))),
       h('div', { class: 'section-actions' }, extra, sectionControls(sortable))
     ),
     items.length ? mountGrid(sorted, `${key}:${sortable ? sortMode : ''}`) : empty
@@ -193,7 +195,7 @@ function greeting() {
 
 // --- home: site filters --------------------------------------------------------------
 
-let homeSite = 'all'; // the site filter on Home; kept while the app is open
+let homeSite = 'all'; // the site filter on Home, from the URL (#/site/<key>)
 let siteScroll = 0;
 
 /** A row of pills: All, then each site with how many links come from it. */
@@ -208,14 +210,15 @@ function siteFilters(bookmarks) {
         type: 'button', class: 'site-pill', 'aria-pressed': String(homeSite === key), dataset: { site: key },
         onClick: () => {
           if (homeSite === key) return;
-          homeSite = key;
           siteScroll = track.scrollLeft;
+          // The filter is part of the URL, so it survives a reload and can be shared.
+          history.replaceState(null, '', key === 'all' ? '#/' : `#/site/${encodeURIComponent(key)}`);
           rerender();
         },
       },
       icon,
       h('span', null, label),
-      h('span', { class: 'count' }, count.toLocaleString('en-US'))
+      h('span', { class: 'count' }, formatNumber(count))
     );
   const favicon = (group) => {
     const img = h('img', { class: 'site-pill-icon', src: group.favicon || faviconFor(group.domain), alt: '', referrerpolicy: 'no-referrer', loading: 'lazy' });
@@ -259,7 +262,8 @@ function homeItems() {
   return group ? all.filter((b) => inSiteGroup(b, group)) : all;
 }
 
-function homeView(ctx) {
+function homeView(ctx, route) {
+  homeSite = route.site || 'all';
   const counts = select.counts();
   const name = displayName();
 
@@ -331,7 +335,7 @@ function folderCard(sub, count) {
     openMenu(
       menu,
       [
-        { label: 'Edit name & color', icon: 'pencil', onSelect: () => openFolderDialog(sub.categoryId, sub) },
+        { label: 'Edit Name & Color', icon: 'pencil', onSelect: () => openFolderDialog(sub.categoryId, sub) },
         { label: 'Add bookmark here', icon: 'plus', onSelect: () => openQuickAdd({ categoryId: sub.categoryId, subcategoryId: sub.id }) },
         { separator: true },
         { label: 'Delete folder', icon: 'trash', danger: true, onSelect: () => confirmDeleteFolder(sub) },
@@ -409,7 +413,7 @@ function categoryView(route, ctx) {
       openMenu(
         more,
         [
-          { label: 'Edit name & color', icon: 'pencil', onSelect: () => openFolderDialog(category.id, sub) },
+          { label: 'Edit Name & Color', icon: 'pencil', onSelect: () => openFolderDialog(category.id, sub) },
           { label: 'Add bookmark here', icon: 'plus', onSelect: () => openQuickAdd({ categoryId: category.id, subcategoryId: sub.id }) },
           { separator: true },
           { label: 'Delete folder', icon: 'trash', danger: true, onSelect: () => confirmDeleteFolder(sub) },
@@ -426,7 +430,7 @@ function categoryView(route, ctx) {
         icon: 'folder',
         title: 'This folder is empty',
         text: 'Save a link straight into it, or move bookmarks here from the Inbox.',
-        action: { label: 'Add bookmark', icon: 'plus', onClick: () => openQuickAdd({ categoryId: category.id, subcategoryId: sub.id }) },
+        action: { label: 'Add Bookmark', icon: 'plus', onClick: () => openQuickAdd({ categoryId: category.id, subcategoryId: sub.id }) },
       }),
     });
   }
@@ -458,7 +462,7 @@ function categoryView(route, ctx) {
           icon: category.icon,
           title: `Nothing in ${category.name} yet`,
           text: 'Save a link here, or move bookmarks in from your Inbox.',
-          action: { label: 'Add bookmark', icon: 'plus', onClick: () => openQuickAdd({ categoryId: category.id }) },
+          action: { label: 'Add Bookmark', icon: 'plus', onClick: () => openQuickAdd({ categoryId: category.id }) },
         }),
       })),
     };
@@ -665,7 +669,7 @@ function settingsView(ctx) {
   const cloud = state.mode === 'cloud';
 
   const inlineForm = ({ type, value = '', placeholder, label, action, success }) => {
-    const input = h('input', { class: 'input', type, value, placeholder, required: true, minlength: type === 'password' ? '6' : null, autocomplete: type === 'password' ? 'new-password' : 'email', 'aria-label': placeholder });
+    const input = h('input', { class: 'input', type, value, placeholder, required: true, minlength: type === 'password' ? '6' : null, autocomplete: type === 'password' ? 'new-password' : 'email', spellcheck: type === 'email' ? 'false' : null, 'aria-label': type === 'email' ? 'Email' : placeholder });
     const button = h('button', { type: 'submit', class: 'btn btn-subtle' }, label);
     const form = h('form', { class: 'set-form' }, input, button);
     form.addEventListener('submit', async (event) => {
@@ -682,7 +686,7 @@ function settingsView(ctx) {
   const account = cloud
     ? group(
         'Account',
-        row('Email', 'A confirmation is sent to the new address.', inlineForm({ type: 'email', value: state.user?.email || '', placeholder: 'Email', label: 'Save', action: ctx.updateEmail, success: 'Check your new inbox to confirm the change' })),
+        row('Email', 'A confirmation is sent to the new address.', inlineForm({ type: 'email', value: state.user?.email || '', placeholder: 'you@example.com', label: 'Save', action: ctx.updateEmail, success: 'Check your new inbox to confirm the change' })),
         row('Password', 'At least 6 characters.', inlineForm({ type: 'password', placeholder: 'New password', label: 'Update', action: ctx.updatePassword, success: 'Password updated' })),
         row('Sign out', state.user?.email, h('button', { type: 'button', class: 'btn btn-subtle', onClick: ctx.signOut }, iconEl('log-out', 15), 'Sign out'))
       )
@@ -718,6 +722,39 @@ function settingsView(ctx) {
     )
   );
 
+  const importing = group(
+    'Import',
+    row(
+      'Browser bookmarks',
+      'From Chrome, Edge, Brave or Firefox. In Chrome: open the bookmark manager (Ctrl+Shift+O), then ⋮ → Export bookmarks, and choose the saved HTML file here.',
+      importButton()
+    ),
+    previews.state.total > 0 && row('Preview images', null, previewStatus())
+  );
+
+  const motionOn = ambientMotion();
+  const appearance = group(
+    'Appearance',
+    row(
+      'Background animation',
+      'The moving letters behind page titles and the rotating search hint. Paused automatically when your system asks for reduced motion.',
+      h(
+        'button',
+        {
+          type: 'button', class: 'btn btn-subtle', 'aria-pressed': String(motionOn),
+          onClick: () => {
+            try {
+              localStorage.setItem(STORAGE.motion, motionOn ? 'off' : 'on');
+            } catch {}
+            window.dispatchEvent(new Event('h3aven:motion'));
+            rerender();
+          },
+        },
+        motionOn ? 'Pause' : 'Resume'
+      )
+    )
+  );
+
   const library = group(
     'Library',
     row(
@@ -745,7 +782,7 @@ function settingsView(ctx) {
   return {
     title: 'Settings',
     crumbs: [{ label: 'Settings' }],
-    node: h('div', null, hero({ title: 'Settings' }), notices(ctx), h('div', { class: 'settings' }, account, capture, library)),
+    node: h('div', null, hero({ title: 'Settings' }), notices(ctx), h('div', { class: 'settings' }, account, importing, appearance, capture, library)),
   };
 }
 
@@ -767,6 +804,6 @@ export function renderView(route, ctx) {
     case 'settings':
       return settingsView(ctx);
     default:
-      return homeView(ctx);
+      return homeView(ctx, route);
   }
 }

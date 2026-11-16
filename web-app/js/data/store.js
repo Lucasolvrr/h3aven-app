@@ -14,6 +14,7 @@
 
 import { domainOf, normalizeUrl, detectContentType, detectSource, parseUrl } from '../lib/url.js';
 import { STARTER_CATEGORIES } from './sample.js';
+import { randomFolderColor } from '../lib/colors.js';
 
 export const MEDIA_TYPES = ['movie', 'tv', 'music'];
 
@@ -339,6 +340,82 @@ export async function addBookmark(input) {
     bookmark = select.byId(bookmark.id);
   }
   return bookmark;
+}
+
+/**
+ * Imports many links at once (from a browser export). items:
+ * [{ url, title, addedAt, category, folder, tags }] — category / folder are
+ * names, created when missing. Duplicates must already be filtered out.
+ * Saves in chunks, calling onProgress(done, total). Returns the new ids.
+ */
+export async function importBookmarks(items, onProgress = () => {}) {
+  requireSchema({ category_id: true });
+
+  // 1. Categories and folders, reusing ones with the same name.
+  const categoryIds = new Map();
+  const folderIds = new Map();
+  for (const item of items) {
+    if (!item.category) continue;
+    const key = item.category.toLowerCase();
+    if (!categoryIds.has(key)) {
+      const existing = state.categories.find((c) => c.name.toLowerCase() === key);
+      categoryIds.set(key, existing ? existing.id : (await createCategory({ name: item.category.slice(0, 60) })).id);
+    }
+    if (!item.folder) continue;
+    const categoryId = categoryIds.get(key);
+    const folderKey = `${categoryId}/${item.folder.toLowerCase()}`;
+    if (!folderIds.has(folderKey)) {
+      const existing = select.subsOf(categoryId).find((s) => s.name.toLowerCase() === item.folder.toLowerCase());
+      folderIds.set(folderKey, existing ? existing.id : (await createSubcategory(categoryId, item.folder.slice(0, 80), randomFolderColor(select.subsOf(categoryId)).id)).id);
+    }
+  }
+
+  // 2. Tags (deeper folder names), created once.
+  const tagNames = cleanTagNames(items.flatMap((item) => item.tags || []));
+  const tagRows = tagNames.length ? await driver.ensureTags(tagNames) : [];
+  const tagId = new Map(tagRows.map((t) => [t.name.toLowerCase(), t.id]));
+  const knownTags = new Set(state.tags.map((t) => t.id));
+  state.tags = [...state.tags, ...tagRows.filter((t) => !knownTags.has(t.id))];
+
+  // 3. The links, a chunk at a time so a big file shows progress and no request is huge.
+  const CHUNK = 200;
+  const created = [];
+  for (let start = 0; start < items.length; start += CHUNK) {
+    const slice = items.slice(start, start + CHUNK);
+    const rows = slice.map((item) => {
+      const categoryId = item.category ? categoryIds.get(item.category.toLowerCase()) : null;
+      const subcategoryId = categoryId && item.folder ? folderIds.get(`${categoryId}/${item.folder.toLowerCase()}`) : null;
+      return {
+        url: item.url,
+        title: item.title || null,
+        source: detectSource(item.url),
+        content_type: detectContentType(item.url),
+        fetch_status: 'ready',
+        metadata: { ...(item.title ? { title: item.title } : {}), captured_via: 'import' },
+        normalized_url: normalizeUrl(item.url),
+        domain: domainOf(item.url),
+        category_id: categoryId || null,
+        subcategory_id: subcategoryId || null,
+        ...(item.addedAt ? { created_at: item.addedAt } : {}),
+      };
+    });
+    const saved = await driver.insertLinks(rows);
+    const pairs = [];
+    const bookmarks = saved.map((row, index) => {
+      const names = cleanTagNames(slice[index]?.tags || []);
+      for (const name of names) {
+        const id = tagId.get(name.toLowerCase());
+        if (id) pairs.push({ link_id: row.id, tag_id: id });
+      }
+      return toBookmark(row, names);
+    });
+    if (pairs.length) await driver.insertLinkTags(pairs);
+    state.bookmarks = [...bookmarks, ...state.bookmarks];
+    created.push(...bookmarks.map((b) => b.id));
+    emit();
+    onProgress(Math.min(start + CHUNK, items.length), items.length);
+  }
+  return created;
 }
 
 export function updateBookmark(id, patch) {

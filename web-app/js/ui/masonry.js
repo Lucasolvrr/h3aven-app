@@ -37,6 +37,9 @@ const persistRatios = debounce(() => {
   writeJson(STORAGE.aspect, ratioCache);
 }, 800);
 
+/** Width / height of a thumbnail as last measured here, if known. */
+export const knownRatio = (url) => (url && ratioCache[url]) || null;
+
 // --- card ----------------------------------------------------------------------
 
 export function fallbackTile(bookmark) {
@@ -157,7 +160,7 @@ function buildCard(bookmark, requestLayout) {
     )
   );
 
-  return h('article', { class: 'bm-card', tabindex: '0', role: 'button', 'aria-label': `${title}, ${bookmark.domain}`, dataset: { id: bookmark.id } }, thumb);
+  return h('article', { class: 'bm-card', tabindex: '0', 'aria-label': `${title}, ${bookmark.domain}. Press Enter to open`, dataset: { id: bookmark.id } }, thumb);
 }
 
 // --- grid ----------------------------------------------------------------------

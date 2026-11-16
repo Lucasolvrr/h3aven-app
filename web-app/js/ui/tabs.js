@@ -9,7 +9,7 @@
 // Views are rebuilt on every route change, so the previous bump position is
 // remembered here and the new instance animates from it.
 
-import { h } from '../lib/dom.js';
+import { h, formatNumber } from '../lib/dom.js';
 import { iconEl } from '../lib/icons.js';
 
 const TAB_HEIGHT = 44;
@@ -77,7 +77,7 @@ export function morphingTabs({ id, label, tabs, activeKey, trailing, panel }) {
         },
         tab.tint && h('span', { class: 'mtab-dot', style: tab.tint, 'aria-hidden': 'true' }),
         h('span', { class: 'mtab-label' }, tab.label),
-        h('span', { class: 'mtab-count' }, tab.count.toLocaleString('en-US'))
+        h('span', { class: 'mtab-count' }, formatNumber(tab.count))
       );
       tabEls.set(tab.key, el);
       return el;

@@ -7,3 +7,6 @@ supabase/.temp/
 skills-lock.json
 web-app/favicon-src/
 dist/
+
+# Local data exports (personal links), never commit
+backups/
