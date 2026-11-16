@@ -15,13 +15,25 @@ export function hasOpenModal() {
 }
 
 /**
- * openModal({ content, className, align: 'center' | 'top', label, onClose })
+ * openModal({ content, className, align: 'center' | 'top' | 'dock', label, onClose })
+ * align 'dock': a glass sheet that grows out of the search dock (creation flows).
  * Returns { close, panel }.
  */
 export function openModal({ content, className = '', align = 'center', label = 'Dialog', onClose, dismissible = true }) {
   const previousFocus = document.activeElement;
   const panel = h('div', { class: `modal ${className}`, role: 'dialog', 'aria-modal': 'true', 'aria-label': label, tabindex: '-1' }, content);
-  const overlay = h('div', { class: `overlay ${align === 'top' ? 'overlay-top' : ''}` }, panel);
+  // Anchor to the dock when it is on screen; otherwise fall back to the centre.
+  const dock = align === 'dock' ? document.querySelector('.dock') : null;
+  const dockRect = dock && dock.getBoundingClientRect();
+  const docked = Boolean(dockRect && dockRect.width && getComputedStyle(dock).visibility !== 'hidden');
+  if (docked) {
+    panel.classList.add('is-docked', 'glass');
+    panel.style.left = `${dockRect.left + dockRect.width / 2}px`;
+    panel.style.bottom = `${window.innerHeight - dockRect.top + 8}px`;
+    panel.style.width = `${dockRect.width}px`;
+    panel.style.maxHeight = `${Math.max(200, dockRect.top - 24)}px`;
+  }
+  const overlay = h('div', { class: `overlay ${align === 'top' ? 'overlay-top' : ''}${docked ? ' overlay-dock' : ''}` }, panel);
   const entry = { closed: false };
 
   entry.close = () => {
@@ -242,7 +254,7 @@ export function confirmDialog({ title, message, confirmLabel = 'Delete', danger 
  * A one-field dialog. `onSubmit(value)` may throw: the message is shown
  * inline and the dialog stays open, so validation lives with the action.
  */
-export function promptDialog({ title, label, value = '', placeholder = '', confirmLabel = 'Save', onSubmit }) {
+export function promptDialog({ title, label, value = '', placeholder = '', confirmLabel = 'Save', align = 'center', onSubmit }) {
   const input = h('input', { class: 'input', type: 'text', value, placeholder, autofocus: true, autocomplete: 'off', maxlength: '80' });
   const error = h('p', { class: 'field-error', hidden: true });
   const submit = h('button', { type: 'submit', class: 'btn btn-primary' }, confirmLabel);
@@ -253,7 +265,7 @@ export function promptDialog({ title, label, value = '', placeholder = '', confi
     h('label', { class: 'field' }, label && h('span', { class: 'field-label' }, label), input, error),
     h('div', { class: 'dialog-foot' }, h('button', { type: 'button', class: 'btn btn-ghost', onClick: () => modal.close() }, 'Cancel'), submit)
   );
-  const modal = openModal({ label: title, content: form });
+  const modal = openModal({ label: title, content: form, align });
   input.select();
   form.addEventListener('submit', async (event) => {
     event.preventDefault();

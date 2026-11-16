@@ -3,14 +3,15 @@
 
 import { h, debounce, formatDate, timeAgo, copyText, plural } from '../lib/dom.js';
 import { iconEl, CATEGORY_ICONS } from '../lib/icons.js';
+import { FOLDER_COLORS, folderColor, randomFolderColor, colorVars } from '../lib/colors.js';
 import { parseUrl, extractUrls, domainOf, faviconFor } from '../lib/url.js';
 import {
-  state, select, addBookmark, updateBookmark, moveBookmarks, setFavorite, deleteBookmarks, setTags, markOpened,
-  createCategory, updateCategory, deleteCategory, createSubcategory, renameSubcategory, deleteSubcategory, addMedia, cleanTagNames,
+  state, select, subscribe, addBookmark, updateBookmark, moveBookmarks, setFavorite, deleteBookmarks, setTags, markOpened,
+  createCategory, updateCategory, deleteCategory, createSubcategory, updateSubcategory, deleteSubcategory, addMedia, cleanTagNames,
 } from '../data/store.js';
 import { fetchPreview, searchMedia } from '../services/metadata.js';
 import { suggestLocation } from '../services/organize.js';
-import { openModal, openMenu, toast, attempt, confirmDialog, promptDialog } from './overlay.js';
+import { openModal, openMenu, toast, attempt, confirmDialog } from './overlay.js';
 import { fallbackTile } from './masonry.js';
 
 // --- shared pieces ---------------------------------------------------------------
@@ -227,7 +228,7 @@ export function openQuickAdd({ url = '', categoryId = null, subcategoryId = null
     h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Tags'), tags.el),
     h('div', { class: 'dialog-foot' }, hint, h('button', { type: 'button', class: 'btn btn-ghost', onClick: () => modal.close() }, 'Cancel'), save)
   );
-  const modal = openModal({ className: 'quickadd', label: 'New bookmark', content: form });
+  const modal = openModal({ className: 'quickadd', label: 'New bookmark', content: form, align: 'dock' });
 
   const showNote = (text, action) => {
     note.replaceChildren(iconEl('info', 15), h('span', null, text), action || '');
@@ -376,229 +377,221 @@ export function openQuickAdd({ url = '', categoryId = null, subcategoryId = null
 
 const MEDIA_LABEL = { movie: 'Movie', tv: 'Series', music: 'Music' };
 
-export function openBookmark(id) {
-  let bookmark = select.byId(id);
-  if (!bookmark) return;
-  const refresh = () => (bookmark = select.byId(id) || bookmark);
+/**
+ * The bookmark viewer: the page's preview centred over a blurred backdrop, and
+ * a quiet side panel with what we know about the link.
+ * sequence(): ids of the list it was opened from, for the previous / next arrows.
+ */
+export function openBookmark(id, { sequence = null } = {}) {
+  if (!select.byId(id)) return;
+  let currentId = id;
 
-  // Left: the preview
-  const media = h('div', { class: 'detail-media' });
-  if (bookmark.thumbnail) {
-    const glow = h('div', { class: 'detail-media-glow', style: { backgroundImage: `url("${bookmark.thumbnail.replace(/"/g, '%22')}")` } });
-    const img = h('img', { class: 'detail-image', src: bookmark.thumbnail, alt: `Preview of ${bookmark.title || bookmark.domain}`, referrerpolicy: 'no-referrer' });
-    img.addEventListener('error', () => media.replaceChildren(fallbackTile(bookmark)));
-    media.append(glow, img);
-  } else {
-    media.append(fallbackTile(bookmark));
-  }
+  const panel = h('aside', { class: 'viewer-panel' });
+  const stage = h('div', { class: 'viewer-stage' });
+  const backdrop = h('div', { class: 'viewer-backdrop', 'aria-hidden': 'true' });
 
-  // Right: information
-  const title = h('h2', { class: 'detail-title' }, bookmark.title || bookmark.domain || bookmark.url);
-  const description = h('p', { class: 'detail-desc' });
-  const paintText = () => {
-    title.textContent = bookmark.title || bookmark.domain || bookmark.url;
-    description.textContent = bookmark.description;
-    description.hidden = !bookmark.description;
+  const ids = () => (sequence ? sequence().filter((value) => select.byId(value)) : []);
+  const step = (delta) => {
+    const list = ids();
+    const index = list.indexOf(currentId);
+    if (index < 0 || !list[index + delta]) return;
+    currentId = list[index + delta];
+    render({ direction: delta });
   };
-  paintText();
 
-  const favicon = h('img', { src: bookmark.favicon || faviconFor(bookmark.domain), alt: '', referrerpolicy: 'no-referrer' });
-  favicon.addEventListener('error', () => favicon.remove());
+  const modal = openModal({
+    className: 'viewer',
+    label: 'Bookmark',
+    content: [backdrop, panel, stage],
+    onClose: () => unsubscribe(),
+  });
 
-  const subtitleParts = [];
-  if (bookmark.isMedia) {
-    subtitleParts.push(MEDIA_LABEL[bookmark.contentType]);
-    if (bookmark.meta.artist) subtitleParts.push(bookmark.meta.artist);
-    if (bookmark.meta.year) subtitleParts.push(bookmark.meta.year);
-  }
+  // Clicking the blurred area around the preview closes, as with any lightbox.
+  stage.addEventListener('click', (event) => {
+    if (event.target === stage) modal.close();
+  });
+  modal.panel.addEventListener('keydown', (event) => {
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(event.target.tagName)) return;
+    if (event.key === 'ArrowLeft') step(-1);
+    else if (event.key === 'ArrowRight') step(1);
+  });
 
-  const stat = (label, value) => h('div', { class: 'stat' }, h('div', { class: 'stat-label' }, label), h('div', { class: 'stat-value', title: value }, value));
-  const stats = h('div', { class: 'detail-stats' });
-  const paintStats = () => {
-    stats.replaceChildren(
-      stat('Saved', formatDate(bookmark.createdAt)),
-      stat('Updated', timeAgo(bookmark.updatedAt) || '—'),
-      stat('Last opened', bookmark.lastAccessedAt ? timeAgo(bookmark.lastAccessedAt) : 'Never')
-    );
-  };
-  paintStats();
+  // Edits made elsewhere (or by this panel) repaint it in place.
+  let editing = false;
+  const unsubscribe = subscribe(() => {
+    if (!select.byId(currentId)) return modal.close();
+    const active = document.activeElement;
+    // Don't repaint under someone typing in the panel (tags, notes, the edit form).
+    if (editing || (panel.contains(active) && /^(INPUT|TEXTAREA)$/.test(active.tagName))) return;
+    const focusKey = panel.contains(active) ? active.dataset.key : null;
+    render({ keepStage: true });
+    if (focusKey) panel.querySelector(`[data-key="${focusKey}"]`)?.focus({ preventScroll: true });
+  });
 
-  const favoriteBtn = h('button', { type: 'button', class: 'icon-btn lg' }, iconEl('star', 16));
-  const paintFavorite = () => {
-    favoriteBtn.classList.toggle('is-on', bookmark.isFavorite);
-    favoriteBtn.setAttribute('aria-pressed', String(bookmark.isFavorite));
-    favoriteBtn.setAttribute('aria-label', bookmark.isFavorite ? 'Remove from favorites' : 'Add to favorites');
-    favoriteBtn.title = bookmark.isFavorite ? 'Remove from favorites' : 'Add to favorites';
-  };
-  paintFavorite();
-  favoriteBtn.addEventListener('click', async () => {
-    const next = !bookmark.isFavorite;
-    if (await attempt(() => setFavorite([id], next), next ? 'Added to favorites' : 'Removed from favorites')) {
-      refresh();
-      paintFavorite();
+  function render({ direction = 0, keepStage = false } = {}) {
+    const bookmark = select.byId(currentId);
+    if (!bookmark) return;
+    modal.panel.setAttribute('aria-label', bookmark.title || bookmark.domain || 'Bookmark');
+    const list = ids();
+    const index = list.indexOf(currentId);
+
+    // --- stage: the preview, centred, over a blur of itself -------------------------
+    if (!keepStage) {
+      const thumb = bookmark.thumbnail;
+      backdrop.style.backgroundImage = thumb ? `url("${thumb.replace(/"/g, '%22')}")` : 'none';
+      let shot;
+      if (thumb) {
+        shot = h('img', { class: 'viewer-shot', src: thumb, alt: `Preview of ${bookmark.title || bookmark.domain}`, referrerpolicy: 'no-referrer' });
+        shot.addEventListener('error', () => shot.replaceWith(h('div', { class: 'viewer-shot is-fallback' }, fallbackTile(bookmark))));
+      } else {
+        shot = h('div', { class: 'viewer-shot is-fallback' }, fallbackTile(bookmark));
+      }
+      const link = h('a', { class: 'viewer-shot-link', href: bookmark.url, target: '_blank', rel: 'noopener noreferrer', title: 'Open link', onClick: () => markOpened(currentId) }, shot);
+      stage.replaceChildren(link);
+      if (direction && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        link.animate([{ opacity: 0, transform: `translateX(${direction * 24}px) scale(0.985)` }, { opacity: 1, transform: 'none' }], { duration: 240, easing: 'cubic-bezier(0.2, 0.7, 0.2, 1)' });
+      }
     }
-  });
 
-  const copy = async () => toast((await copyText(bookmark.url)) ? 'Link copied' : 'Could not copy the link', { type: 'info' });
-
-  const location = locationSelects({
-    categoryId: bookmark.categoryId,
-    subcategoryId: bookmark.subcategoryId,
-    onChange: async (where) => {
-      const ok = await attempt(() => moveBookmarks([id], where.categoryId, where.subcategoryId));
-      refresh();
-      if (ok) toast(`Moved to ${select.locationLabel(bookmark)}`);
-      else location.set(bookmark.categoryId, bookmark.subcategoryId);
-      paintStats();
-    },
-  });
-
-  const tags = tagEditor({
-    tags: bookmark.tags,
-    onChange: async (names) => {
-      await attempt(() => setTags(id, names));
-      refresh();
-    },
-  });
-
-  const notes = h('textarea', { class: 'textarea', placeholder: 'Why did you save this?', 'aria-label': 'Personal notes' });
-  notes.value = bookmark.notes;
-  notes.addEventListener('blur', async () => {
-    const value = notes.value.trim();
-    if (value === bookmark.notes) return;
-    if (await attempt(() => updateBookmark(id, { notes: value }), 'Notes saved')) refresh();
-  });
-
-  // Inline edit of title + description
-  const textBlock = h('div', null);
-  const showText = () => {
-    textBlock.replaceChildren(
-      title,
+    // --- panel ------------------------------------------------------------------------
+    const navButton = (icon, label, delta, disabled) =>
+      h('button', { type: 'button', class: 'viewer-icon', 'aria-label': label, title: label, disabled, onClick: () => step(delta) }, iconEl(icon, 16));
+    const favorite = h(
+      'button',
+      {
+        type: 'button', class: `viewer-icon${bookmark.isFavorite ? ' is-on' : ''}`, 'aria-pressed': String(bookmark.isFavorite), dataset: { key: 'favorite' },
+        'aria-label': bookmark.isFavorite ? 'Remove from favorites' : 'Add to favorites', title: bookmark.isFavorite ? 'Remove from favorites' : 'Add to favorites',
+        onClick: () => attempt(() => setFavorite([currentId], !bookmark.isFavorite)),
+      },
+      iconEl('heart', 16)
+    );
+    const top = h(
+      'div',
+      { class: 'viewer-top' },
+      h('button', { type: 'button', class: 'viewer-icon', 'aria-label': 'Close', title: 'Close', onClick: () => modal.close() }, iconEl('x', 16)),
       h(
-        'a',
-        { class: 'detail-domain', href: bookmark.url, target: '_blank', rel: 'noopener noreferrer', onClick: () => markOpened(id) },
-        favicon,
-        h('span', null, [bookmark.domain, ...subtitleParts].filter(Boolean).join(' · ')),
-        iconEl('arrow-up-right', 13)
+        'div',
+        { class: 'viewer-top-actions' },
+        favorite,
+        list.length > 1 && navButton('arrow-left', 'Previous', -1, index <= 0),
+        list.length > 1 && navButton('arrow-right', 'Next', 1, index < 0 || index >= list.length - 1)
       )
     );
-  };
-  const showEditor = () => {
+
+    const icon = h('div', { class: 'viewer-favicon' });
+    const faviconSrc = bookmark.favicon || faviconFor(bookmark.domain);
+    if (faviconSrc) {
+      const img = h('img', { src: faviconSrc, alt: '', referrerpolicy: 'no-referrer' });
+      img.addEventListener('error', () => icon.replaceChildren((bookmark.domain || '?').charAt(0).toUpperCase()));
+      icon.append(img);
+    } else icon.append((bookmark.domain || '?').charAt(0).toUpperCase());
+
+    const place = bookmark.isMedia ? MEDIA_LABEL[bookmark.contentType] : select.locationLabel(bookmark);
+    const head = h(
+      'div',
+      { class: 'viewer-head' },
+      icon,
+      h('p', { class: 'viewer-eyebrow' }, place),
+      h('h2', { class: 'viewer-title' }, bookmark.title || bookmark.domain || bookmark.url),
+      bookmark.description && h('p', { class: 'viewer-desc' }, bookmark.description),
+      bookmark.selectedText && h('blockquote', { class: 'viewer-quote' }, bookmark.selectedText),
+      h('p', { class: 'viewer-when' }, timeAgo(bookmark.createdAt) || formatDate(bookmark.createdAt))
+    );
+
+    const row = (label, value, extra = {}) => h('div', { class: `viewer-row${extra.stack ? ' is-stacked' : ''}` }, h('dt', null, label), h('dd', null, value));
+
+    const placeButton = h('button', { type: 'button', class: 'viewer-value-btn', 'aria-haspopup': 'menu', title: 'Move to…', dataset: { key: 'place' } }, h('span', null, select.locationLabel(bookmark)), iconEl('chevron-down', 13));
+    placeButton.addEventListener('click', () => openMoveMenu(placeButton, [currentId], { align: 'end' }));
+
+    const tags = tagEditor({
+      tags: bookmark.tags,
+      onChange: async (names) => {
+        await attempt(() => setTags(currentId, names));
+      },
+    });
+
+    const notes = h('textarea', { class: 'viewer-notes', placeholder: 'Add a note…', 'aria-label': 'Personal notes', rows: '2' });
+    notes.value = bookmark.notes;
+    notes.addEventListener('blur', async () => {
+      const value = notes.value.trim();
+      if (value !== bookmark.notes) await attempt(() => updateBookmark(currentId, { notes: value }), 'Notes saved');
+    });
+
+    const meta = [];
+    if (bookmark.isMedia) {
+      if (bookmark.meta.artist) meta.push(row('Artist', bookmark.meta.artist));
+      if (bookmark.meta.year) meta.push(row('Year', String(bookmark.meta.year)));
+    }
+    const facts = h(
+      'dl',
+      { class: 'viewer-facts' },
+      row('Site', h('a', { href: bookmark.url, target: '_blank', rel: 'noopener noreferrer', onClick: () => markOpened(currentId) }, bookmark.domain || 'Link')),
+      !bookmark.isMedia && row('Saved in', placeButton),
+      ...meta,
+      row('Saved', formatDate(bookmark.createdAt)),
+      row('Last opened', bookmark.lastAccessedAt ? timeAgo(bookmark.lastAccessedAt) : 'Never'),
+      row('Tags', tags.el, { stack: true }),
+      row('Notes', notes, { stack: true })
+    );
+
+    const copy = async () => toast((await copyText(bookmark.url)) ? 'Link copied' : 'Could not copy the link', { type: 'info' });
+    const remove = async () => {
+      const yes = await confirmDialog({
+        title: 'Delete this bookmark?',
+        message: `“${bookmark.title || bookmark.domain}” will be removed from your library. This can't be undone.`,
+      });
+      if (yes) await attempt(() => deleteBookmarks([currentId]), 'Bookmark deleted');
+    };
+    const more = h('button', { type: 'button', class: 'viewer-icon is-boxed', 'aria-label': 'More actions', title: 'More actions', 'aria-haspopup': 'menu' }, iconEl('more', 16));
+    more.addEventListener('click', () =>
+      openMenu(
+        more,
+        [
+          { label: 'Edit title & description', icon: 'pencil', onSelect: () => editText(bookmark) },
+          { label: 'Copy link', icon: 'copy', onSelect: copy },
+          { separator: true },
+          { label: 'Delete', icon: 'trash', danger: true, onSelect: remove },
+        ],
+        { align: 'end' }
+      )
+    );
+    const foot = h(
+      'div',
+      { class: 'viewer-foot' },
+      h('button', { type: 'button', class: 'btn btn-primary btn-lg', onClick: () => openLink(bookmark) }, 'Open link', iconEl('arrow-up-right', 15)),
+      more
+    );
+
+    panel.replaceChildren(top, h('div', { class: 'viewer-body' }, head, facts), foot);
+  }
+
+  /** Swaps the head of the panel for a small form. */
+  function editText(bookmark) {
+    editing = true;
     const titleField = h('input', { class: 'input', type: 'text', 'aria-label': 'Title', value: bookmark.title });
     const descField = h('textarea', { class: 'textarea', 'aria-label': 'Description', placeholder: 'Description' });
     descField.value = bookmark.description;
+    const done = () => {
+      editing = false;
+      render({ keepStage: true });
+    };
     const form = h(
       'form',
-      { class: 'detail-edit' },
+      { class: 'viewer-edit' },
       titleField,
       descField,
-      h(
-        'div',
-        { class: 'dialog-foot' },
-        h('button', { type: 'button', class: 'btn btn-ghost', onClick: () => (showText(), paintText()) }, 'Cancel'),
-        h('button', { type: 'submit', class: 'btn btn-primary' }, 'Save')
-      )
+      h('div', { class: 'dialog-foot' }, h('button', { type: 'button', class: 'btn btn-ghost', onClick: done }, 'Cancel'), h('button', { type: 'submit', class: 'btn btn-primary' }, 'Save'))
     );
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
-      const ok = await attempt(
-        () => updateBookmark(id, { title: titleField.value.trim(), description: descField.value.trim() }),
-        'Bookmark updated'
-      );
-      if (!ok) return;
-      refresh();
-      showText();
-      paintText();
-      paintStats();
+      const ok = await attempt(() => updateBookmark(currentId, { title: titleField.value.trim(), description: descField.value.trim() }), 'Bookmark updated');
+      if (ok) done();
     });
-    description.hidden = true;
-    textBlock.replaceChildren(form);
+    panel.querySelector('.viewer-head').replaceWith(form);
     titleField.focus();
-  };
-  showText();
+  }
 
-  const remove = async () => {
-    const yes = await confirmDialog({
-      title: 'Delete this bookmark?',
-      message: `“${bookmark.title || bookmark.domain}” will be removed from your library. This can't be undone.`,
-    });
-    if (!yes) return;
-    if (await attempt(() => deleteBookmarks([id]), 'Bookmark deleted')) modal.close();
-  };
-
-  const moreBtn = h('button', { type: 'button', class: 'icon-btn lg', 'aria-label': 'More actions', title: 'More actions' }, iconEl('more', 16));
-  moreBtn.addEventListener('click', () =>
-    openMenu(
-      moreBtn,
-      [
-        { label: 'Edit title & description', icon: 'pencil', onSelect: showEditor },
-        !bookmark.isMedia && {
-          label: 'Move to…',
-          icon: 'folder',
-          onSelect: () =>
-            openMoveMenu(moreBtn, [id], {
-              align: 'end',
-              onDone: () => {
-                refresh();
-                location.set(bookmark.categoryId, bookmark.subcategoryId);
-              },
-            }),
-        },
-        { label: 'Copy link', icon: 'copy', onSelect: copy },
-        { separator: true },
-        { label: 'Delete', icon: 'trash', danger: true, onSelect: remove },
-      ],
-      { align: 'end' }
-    )
-  );
-
-  const side = h(
-    'div',
-    { class: 'detail-side' },
-    h(
-      'div',
-      { class: 'detail-scroll' },
-      textBlock,
-      description,
-      bookmark.selectedText && h('blockquote', { class: 'detail-quote' }, bookmark.selectedText),
-      stats,
-      h(
-        'div',
-        { class: 'detail-fields' },
-        !bookmark.isMedia && h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Category'), location.el),
-        h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Tags'), tags.el),
-        h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Notes'), notes),
-        h(
-          'div',
-          { class: 'field' },
-          h('span', { class: 'field-label' }, 'Link'),
-          h(
-            'div',
-            { class: 'detail-url' },
-            h('span', { title: bookmark.url }, bookmark.url),
-            h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Copy link', title: 'Copy link', onClick: copy }, iconEl('copy', 14))
-          )
-        )
-      )
-    ),
-    h(
-      'div',
-      { class: 'detail-foot' },
-      h('button', { type: 'button', class: 'btn btn-primary btn-lg', onClick: () => (openLink(bookmark), refresh(), paintStats()) }, 'Open link', iconEl('arrow-up-right', 15)),
-      favoriteBtn,
-      moreBtn
-    )
-  );
-
-  const modal = openModal({
-    className: 'detail',
-    label: bookmark.title || 'Bookmark',
-    content: [
-      h('button', { type: 'button', class: 'icon-btn detail-close', 'aria-label': 'Close', onClick: () => modal.close() }, iconEl('x', 16)),
-      media,
-      side,
-    ],
-  });
+  render();
 }
 
 // --- categories & folders --------------------------------------------------------------
@@ -630,7 +623,7 @@ export function openCategoryDialog(category = null) {
     h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Icon'), picker),
     h('div', { class: 'dialog-foot' }, h('button', { type: 'button', class: 'btn btn-ghost', onClick: () => modal.close() }, 'Cancel'), submit)
   );
-  const modal = openModal({ label: category ? 'Edit category' : 'New category', content: form });
+  const modal = openModal({ label: category ? 'Edit category' : 'New category', content: form, align: 'dock' });
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -668,18 +661,51 @@ export async function confirmDeleteCategory(category) {
   }
 }
 
+/** New folder (random colour, changeable) or edit an existing one's name and colour. */
 export function openFolderDialog(categoryId, folder = null) {
-  promptDialog({
-    title: folder ? 'Rename folder' : 'New folder',
-    label: folder ? 'Name' : `Folder in ${select.category(categoryId)?.name || 'category'}`,
-    value: folder?.name || '',
-    placeholder: 'e.g. Typography',
-    confirmLabel: folder ? 'Save' : 'Create folder',
-    onSubmit: async (value) => {
-      if (folder) await renameSubcategory(folder.id, value);
-      else await createSubcategory(categoryId, value);
-      toast(folder ? 'Folder renamed' : 'Folder created');
-    },
+  const title = folder ? 'Edit folder' : 'New folder';
+  let color = (folder ? folderColor(folder) : randomFolderColor(select.subsOf(categoryId))).id;
+
+  const input = h('input', { class: 'input', type: 'text', value: folder?.name || '', placeholder: 'e.g. Typography', autofocus: true, autocomplete: 'off', maxlength: '80' });
+  const error = h('p', { class: 'field-error', hidden: true });
+  const submit = h('button', { type: 'submit', class: 'btn btn-primary' }, folder ? 'Save' : 'Create folder');
+  const swatches = h(
+    'div',
+    { class: 'swatches', role: 'radiogroup', 'aria-label': 'Folder color' },
+    FOLDER_COLORS.map((option) =>
+      h('button', {
+        type: 'button', class: 'swatch', role: 'radio', title: option.label, 'aria-label': option.label, 'aria-checked': String(option.id === color),
+        style: colorVars(option),
+        onClick: (event) => {
+          color = option.id;
+          for (const el of swatches.children) el.setAttribute('aria-checked', String(el === event.currentTarget));
+        },
+      })
+    )
+  );
+  const form = h(
+    'form',
+    { class: 'dialog' },
+    h('h2', { class: 'dialog-title' }, title),
+    h('label', { class: 'field' }, h('span', { class: 'field-label' }, folder ? 'Name' : `Folder in ${select.category(categoryId)?.name || 'category'}`), input, error),
+    h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Color'), swatches),
+    h('div', { class: 'dialog-foot' }, h('button', { type: 'button', class: 'btn btn-ghost', onClick: () => modal.close() }, 'Cancel'), submit)
+  );
+  const modal = openModal({ label: title, content: form, align: 'dock' });
+  input.select();
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    submit.disabled = true;
+    try {
+      if (folder) await updateSubcategory(folder.id, { name: input.value, color });
+      else await createSubcategory(categoryId, input.value, color);
+      toast(folder ? 'Folder updated' : 'Folder created');
+      modal.close();
+    } catch (problem) {
+      error.textContent = problem.message || 'Something went wrong.';
+      error.hidden = false;
+      submit.disabled = false;
+    }
   });
 }
 
@@ -764,6 +790,7 @@ export function openMediaSearch() {
 
   const modal = openModal({
     className: 'quickadd',
+    align: 'dock',
     label: 'Add to library',
     content: h(
       'div',

@@ -4,27 +4,32 @@
 // and images never reload.
 
 import { STORAGE } from '../config.js';
-import { h, plural, debounce, readJson, writeJson, copyText } from '../lib/dom.js';
+import { h, plural, copyText } from '../lib/dom.js';
 import { iconEl } from '../lib/icons.js';
+import { folderColor, colorVars } from '../lib/colors.js';
 import { state, select, sortBookmarks, SORTS, displayName, addStarterCategories } from '../data/store.js';
 import { STARTER_CATEGORIES } from '../data/sample.js';
-import { searchBookmarks } from '../services/organize.js';
+import { filterBookmarks } from '../services/organize.js';
+import { live, chipsToHash, chipLabel } from './searchdock.js';
 import { Masonry } from './masonry.js';
 import { heroField } from './ascii.js';
+import { morphingTabs, tabAddButton, forgetTabs } from './tabs.js';
 import { selection } from './selection.js';
 import { openMenu, toast, attempt } from './overlay.js';
 import {
   openBookmark, openLink, toggleFavorite, openQuickAdd, openCategoryDialog, confirmDeleteCategory,
   openFolderDialog, confirmDeleteFolder, openMediaSearch,
+  openMoveMenu,
 } from './dialogs.js';
 
 export const grid = new Masonry({
-  onOpen: openBookmark,
+  onOpen: (id) => openBookmark(id, { sequence: () => grid.items.map((b) => b.id) }),
   onFavorite: toggleFavorite,
   onOpenLink: (id) => {
     const bookmark = select.byId(id);
     if (bookmark) openLink(bookmark);
   },
+  onMove: (id, anchor) => openMoveMenu(anchor, [id]),
 });
 
 let gridKey = null;
@@ -41,20 +46,13 @@ function mountGrid(items, key) {
 // --- building blocks ----------------------------------------------------------------
 
 /** Compact header over the interactive ASCII field. */
-function hero({ eyebrow, dim, title, sub, meta = [] }) {
+function hero({ dim, title, sub }) {
   return h(
     'header',
     { class: 'hero' },
     h('div', { class: 'hero-bg', 'aria-hidden': 'true' }, heroField()),
-    eyebrow && h('p', { class: 'hero-eyebrow' }, eyebrow),
     h('h1', { class: 'hero-title' }, dim && h('span', { class: 'dim' }, dim), title),
-    sub && h('p', { class: 'hero-sub' }, sub),
-    meta.length > 0 &&
-      h(
-        'div',
-        { class: 'hero-meta' },
-        meta.map(([value, label]) => h('span', null, h('strong', null, String(value)), ` ${label}`))
-      )
+    sub && h('p', { class: 'hero-sub' }, sub)
   );
 }
 
@@ -167,7 +165,7 @@ function loadingView() {
   return h(
     'div',
     { 'aria-busy': 'true', 'aria-label': 'Loading your library' },
-    hero({ eyebrow: 'Loading', title: 'Opening your library…' }),
+    hero({ title: 'Opening your library…' }),
     h('section', { class: 'section' }, h('div', { class: 'skeleton-grid' }, Array.from({ length: 12 }, () => h('div', { class: 'skeleton-card shimmer' }))))
   );
 }
@@ -196,8 +194,6 @@ function homeView(ctx) {
   const counts = select.counts();
   const name = displayName();
   const recent = sortBookmarks(select.bookmarks(), 'saved').slice(0, 96);
-  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
-  const thisWeek = recent.filter((b) => b.createdAt > weekAgo).length;
 
   return {
     title: 'Home',
@@ -206,10 +202,8 @@ function homeView(ctx) {
       'div',
       null,
       hero({
-        eyebrow: new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }),
         dim: `${greeting()}${name ? `, ${name}` : ''}.`,
         title: counts.all ? `${plural(counts.all, 'bookmark')} in your library.` : 'Your library starts here.',
-        meta: counts.all ? [[thisWeek, 'saved this week'], [counts.inbox, 'in Inbox'], [counts.favorites, counts.favorites === 1 ? 'favorite' : 'favorites']] : [],
       }),
       notices(ctx),
       h(
@@ -220,7 +214,7 @@ function homeView(ctx) {
           'nav',
           { class: 'quick', 'aria-label': 'Quick access' },
           quickItem({ href: '#/recent', icon: 'clock', label: 'Recently Saved' }),
-          quickItem({ href: '#/favorites', icon: 'star', label: 'Favorites', count: counts.favorites }),
+          quickItem({ href: '#/favorites', icon: 'heart', label: 'Favorites', count: counts.favorites }),
           quickItem({ href: '#/inbox', icon: 'inbox', label: 'Inbox', count: counts.inbox }),
           state.categories.map((category) =>
             quickItem({ href: `#/c/${category.id}`, icon: category.icon, label: category.name, count: counts.category.get(category.id) || 0 })
@@ -267,7 +261,7 @@ const LISTS = {
     label: 'Favorites',
     sub: 'The references you keep coming back to, from every category.',
     items: () => select.favorites(),
-    empty: { icon: 'star', title: 'No favorites yet', text: 'Star a bookmark and it is pinned here.' },
+    empty: { icon: 'heart', title: 'No favorites yet', text: 'Tap the heart on a bookmark and it is kept here.' },
   },
   all: {
     label: 'All Bookmarks',
@@ -286,7 +280,7 @@ function listView(route, ctx) {
     node: h(
       'div',
       null,
-      hero({ eyebrow: 'Workspace', title: list.label, sub: list.sub}),
+      hero({ title: list.label, sub: list.sub }),
       notices(ctx),
       gridSection({
         title: route.list === 'inbox' ? 'To organize' : 'Bookmarks',
@@ -307,7 +301,7 @@ function folderCard(sub, count) {
     openMenu(
       menu,
       [
-        { label: 'Rename', icon: 'pencil', onSelect: () => openFolderDialog(sub.categoryId, sub) },
+        { label: 'Edit name & color', icon: 'pencil', onSelect: () => openFolderDialog(sub.categoryId, sub) },
         { label: 'Add bookmark here', icon: 'plus', onSelect: () => openQuickAdd({ categoryId: sub.categoryId, subcategoryId: sub.id }) },
         { separator: true },
         { label: 'Delete folder', icon: 'trash', danger: true, onSelect: () => confirmDeleteFolder(sub) },
@@ -317,7 +311,7 @@ function folderCard(sub, count) {
   );
   return h(
     'div',
-    { class: 'folder' },
+    { class: 'folder', style: colorVars(folderColor(sub)) },
     h(
       'a',
       { class: 'folder-link', href: `#/c/${sub.categoryId}/${sub.id}`, 'aria-label': `${sub.name}, ${plural(count, 'bookmark')}` },
@@ -351,7 +345,7 @@ function missingView(label) {
   return {
     title: 'Not found',
     crumbs: [{ label: 'Not found' }],
-    node: h('div', null, hero({ eyebrow: 'Not found', title: `This ${label} no longer exists.` }), emptyState({ icon: 'folder', title: 'Nothing here', text: 'It may have been deleted or renamed.', action: { label: 'Back to Home', onClick: () => (location.hash = '#/') } })),
+    node: h('div', null, hero({ title: `This ${label} no longer exists.` }), emptyState({ icon: 'folder', title: 'Nothing here', text: 'It may have been deleted or renamed.', action: { label: 'Back to Home', onClick: () => (location.hash = '#/') } })),
   };
 }
 
@@ -361,79 +355,60 @@ function categoryView(route, ctx) {
   const subs = select.subsOf(category.id);
   const items = select.inCategory(category.id);
   const counts = select.counts();
+  const sub = route.subId ? select.subcategory(route.subId) : null;
+  if (route.subId && (!sub || sub.categoryId !== category.id)) return missingView('folder');
 
-  if (route.subId) {
-    const sub = select.subcategory(route.subId);
-    if (!sub || sub.categoryId !== category.id) return missingView('folder');
-    const inSub = select.inSubcategory(sub.id);
+  // Inside a folder, the category's folders are tabs and the selected one's
+  // bookmarks fill the panel joined to it. "All" leads back to the category page.
+  const tabs = [
+    { key: 'all', label: 'All', count: items.length, href: `#/c/${category.id}` },
+    ...subs.map((s) => ({
+      key: s.id,
+      label: s.name,
+      count: counts.subcategory.get(s.id) || 0,
+      href: `#/c/${category.id}/${s.id}`,
+      tint: colorVars(folderColor(s)),
+    })),
+  ];
+
+  let panel;
+  let actions;
+  if (sub) {
     const more = h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Folder options', 'aria-haspopup': 'menu', title: 'Folder options' }, iconEl('more', 16));
     more.addEventListener('click', () =>
       openMenu(
         more,
         [
-          { label: 'Rename folder', icon: 'pencil', onSelect: () => openFolderDialog(category.id, sub) },
+          { label: 'Edit name & color', icon: 'pencil', onSelect: () => openFolderDialog(category.id, sub) },
+          { label: 'Add bookmark here', icon: 'plus', onSelect: () => openQuickAdd({ categoryId: category.id, subcategoryId: sub.id }) },
           { separator: true },
           { label: 'Delete folder', icon: 'trash', danger: true, onSelect: () => confirmDeleteFolder(sub) },
         ],
         { align: 'end' }
       )
     );
-    return {
-      title: `${sub.name} · ${category.name}`,
-      crumbs: [{ label: category.name, href: `#/c/${category.id}` }, { label: sub.name }],
-      actions: [more],
-      node: h(
-        'div',
-        null,
-        hero({ eyebrow: category.name, title: sub.name, meta: [[inSub.length, inSub.length === 1 ? 'bookmark' : 'bookmarks']]}),
-        notices(ctx),
-        h(
-          'section',
-          { class: 'section' },
-          h(
-            'nav',
-            { class: 'tabs', 'aria-label': `${category.name} folders` },
-            h('a', { class: 'tab', href: `#/c/${category.id}`, title: `Back to ${category.name}` }, iconEl('arrow-left', 14), category.name),
-            h('span', { class: 'tab-sep', 'aria-hidden': 'true' }),
-            subs.map((s) =>
-              h(
-                'a',
-                { class: `tab${s.id === sub.id ? ' is-active' : ''}`, href: `#/c/${category.id}/${s.id}`, 'aria-current': s.id === sub.id ? 'page' : null },
-                s.name,
-                h('span', { class: 'count' }, String(counts.subcategory.get(s.id) || 0))
-              )
-            )
-          )
-        ),
-        gridSection({
-          title: sub.name,
-          items: inSub,
-          key: `sub:${sub.id}`,
-          empty: emptyState({
-            icon: 'folder',
-            title: 'This folder is empty',
-            text: 'Save a link straight into it, or move bookmarks here from the Inbox.',
-            action: { label: 'Add bookmark', icon: 'plus', onClick: () => openQuickAdd({ categoryId: category.id, subcategoryId: sub.id }) },
-          }),
-        })
-      ),
-    };
+    actions = [more];
+    panel = gridSection({
+      title: sub.name,
+      items: select.inSubcategory(sub.id),
+      key: `sub:${sub.id}`,
+      empty: emptyState({
+        icon: 'folder',
+        title: 'This folder is empty',
+        text: 'Save a link straight into it, or move bookmarks here from the Inbox.',
+        action: { label: 'Add bookmark', icon: 'plus', onClick: () => openQuickAdd({ categoryId: category.id, subcategoryId: sub.id }) },
+      }),
+    });
   }
 
-  return {
-    title: category.name,
-    crumbs: [{ label: category.name }],
-    actions: [categoryMenuButton(category)],
-    node: h(
-      'div',
-      null,
-      hero({
-        eyebrow: 'Category',
-        title: category.name,
-        sub: category.description,
-        meta: [[items.length, items.length === 1 ? 'bookmark' : 'bookmarks'], [subs.length, subs.length === 1 ? 'folder' : 'folders']],
-      }),
-      notices(ctx),
+  // The category itself keeps its own page: folder cards, then everything in it.
+  if (!sub) {
+    forgetTabs(category.id);
+    return {
+      title: category.name,
+      crumbs: [{ label: category.name }],
+      actions: [categoryMenuButton(category)],
+      node: h('div', null, hero({ title: category.name, sub: category.description }), notices(ctx),
       h(
         'section',
         { class: 'section' },
@@ -441,13 +416,8 @@ function categoryView(route, ctx) {
         h(
           'div',
           { class: 'folders' },
-          subs.map((sub) => folderCard(sub, counts.subcategory.get(sub.id) || 0)),
-          h(
-            'button',
-            { type: 'button', class: 'folder is-new', onClick: () => openFolderDialog(category.id) },
-            iconEl('plus', 20),
-            'New folder'
-          )
+          subs.map((s) => folderCard(s, counts.subcategory.get(s.id) || 0)),
+          h('button', { type: 'button', class: 'folder is-new', onClick: () => openFolderDialog(category.id) }, iconEl('plus', 20), 'New folder')
         )
       ),
       gridSection({
@@ -460,6 +430,26 @@ function categoryView(route, ctx) {
           text: 'Save a link here, or move bookmarks in from your Inbox.',
           action: { label: 'Add bookmark', icon: 'plus', onClick: () => openQuickAdd({ categoryId: category.id }) },
         }),
+      })),
+    };
+  }
+
+  return {
+    title: `${sub.name} · ${category.name}`,
+    crumbs: [{ label: category.name, href: `#/c/${category.id}` }, { label: sub.name }],
+    actions,
+    node: h(
+      'div',
+      null,
+      hero({ title: category.name, sub: category.description }),
+      notices(ctx),
+      morphingTabs({
+        id: category.id,
+        label: `${category.name} folders`,
+        tabs,
+        activeKey: sub.id,
+        trailing: tabAddButton('New folder', () => openFolderDialog(category.id)),
+        panel,
       })
     ),
   };
@@ -514,10 +504,8 @@ function libraryView(route, ctx) {
       'div',
       null,
       hero({
-        eyebrow: 'Library',
         title: 'Movies, series and music',
         sub: 'Things to watch and listen to, kept apart from your bookmarks.',
-        meta: media.length ? [[media.length, media.length === 1 ? 'title' : 'titles']] : [],
       }),
       notices(ctx),
       h(
@@ -549,96 +537,55 @@ function libraryView(route, ctx) {
 
 // --- search ------------------------------------------------------------------------------------
 
-function rememberSearch(query) {
-  if (query.length < 2) return;
-  const recent = readJson(STORAGE.recentSearches, []).filter((item) => item.toLowerCase() !== query.toLowerCase());
-  writeJson(STORAGE.recentSearches, [query, ...recent].slice(0, 6));
-}
-const rememberSearchSoon = debounce(rememberSearch, 1500);
-
 function searchView(route) {
-  const input = h('input', {
-    id: 'search-input', type: 'text', placeholder: 'Search titles, links, tags, notes…', value: route.query,
-    autocomplete: 'off', spellcheck: 'false', 'aria-label': 'Search your library',
+  const chips = route.chips;
+  const place = chips.find((chip) => chip.kind !== 'term');
+  const terms = chips.filter((chip) => chip.kind === 'term').map((chip) => chip.value);
+  if (live.query) terms.push(live.query);
+
+  if (!place && !terms.length) {
+    const tags = select.tagNames().slice(0, 14);
+    return {
+      title: 'Search',
+      crumbs: [{ label: 'Search' }],
+      node: h(
+        'div',
+        null,
+        hero({ title: 'Find anything you saved', sub: 'Type in the bar below. Words, categories and folders become filters you can combine.' }),
+        tags.length > 0
+          ? h(
+              'section',
+              { class: 'section' },
+              h('div', { class: 'section-head' }, h('h2', { class: 'section-title' }, 'Try a tag')),
+              h('div', { class: 'chips' }, tags.map((tag) => h('a', { class: 'chip', href: chipsToHash([{ kind: 'term', value: tag }]) }, iconEl('hash', 12), tag)))
+            )
+          : emptyState({ icon: 'search', title: 'Search your library', text: 'Titles, links, domains, descriptions, tags, categories and notes are all searched.' })
+      ),
+    };
+  }
+
+  const found = filterBookmarks({
+    terms,
+    categoryId: place?.kind === 'category' ? place.id : null,
+    subId: place?.kind === 'sub' ? place.id : null,
   });
-  const clear = h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Clear search' }, iconEl('x', 15));
-  const results = h('div');
-
-  const setQuery = (value) => {
-    input.value = value;
-    history.replaceState(null, '', `#/search${value ? `/${encodeURIComponent(value)}` : ''}`);
-    paint();
-    input.focus();
-  };
-
-  const paint = () => {
-    const query = input.value.trim();
-    clear.hidden = !query;
-    if (!query) {
-      const recent = readJson(STORAGE.recentSearches, []);
-      const tags = select.tagNames().slice(0, 14);
-      results.replaceChildren(
-        recent.length > 0 &&
-          h(
-            'section',
-            { class: 'section' },
-            h(
-              'div',
-              { class: 'section-head' },
-              h('h2', { class: 'section-title' }, 'Recent searches'),
-              h('button', { type: 'button', class: 'btn btn-ghost', onClick: () => (writeJson(STORAGE.recentSearches, []), paint()) }, 'Clear')
-            ),
-            h('div', { class: 'chips' }, recent.map((item) => h('button', { type: 'button', class: 'chip', onClick: () => setQuery(item) }, iconEl('clock', 12), item)))
-          ),
-        tags.length > 0 &&
-          h(
-            'section',
-            { class: 'section' },
-            h('div', { class: 'section-head' }, h('h2', { class: 'section-title' }, 'Try a tag')),
-            h('div', { class: 'chips' }, tags.map((tag) => h('button', { type: 'button', class: 'chip', onClick: () => setQuery(tag) }, iconEl('hash', 12), tag)))
-          ),
-        !recent.length && !tags.length && emptyState({ icon: 'search', title: 'Search your library', text: 'Titles, links, domains, descriptions, tags, categories and notes are all searched.' })
-      );
-      return;
-    }
-    const found = searchBookmarks(query);
-    results.replaceChildren(
-      gridSection({
-        title: found.length === 1 ? 'Result' : 'Results',
-        items: found,
-        key: `search:${query}`,
-        sortable: false,
-        empty: emptyState({ icon: 'search', title: `No matches for “${query}”`, text: 'Try fewer words, a domain, or a tag.' }),
-      })
-    );
-  };
-
-  input.addEventListener(
-    'input',
-    debounce(() => {
-      const query = input.value.trim();
-      history.replaceState(null, '', `#/search${query ? `/${encodeURIComponent(query)}` : ''}`);
-      paint();
-      rememberSearchSoon(query);
-    }, 160)
-  );
-  input.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') rememberSearch(input.value.trim());
-  });
-  clear.addEventListener('click', () => setQuery(''));
-  paint();
-  // Arriving on the page (not a background refresh): put the cursor in the field.
-  if (document.activeElement === document.body) requestAnimationFrame(() => input.focus());
-
+  const quoted = terms.map((term) => `“${term}”`).join(' + ');
+  const where = place ? chipLabel(place) : '';
+  const title = quoted && where ? `${quoted} in ${where}` : quoted || where;
   return {
     title: 'Search',
     crumbs: [{ label: 'Search' }],
     node: h(
       'div',
       null,
-      hero({ eyebrow: 'Search', title: 'Find anything you saved'}),
-      h('section', { class: 'section' }, h('label', { class: 'search-field' }, iconEl('search', 17), input, clear)),
-      h('div', { style: 'margin-top:26px' }, results)
+      hero({ title, sub: `${plural(found.length, 'bookmark')} found` }),
+      gridSection({
+        title: found.length === 1 ? 'Result' : 'Results',
+        items: found,
+        key: `search:${chipsToHash(chips)}:${live.query}`,
+        sortable: false,
+        empty: emptyState({ icon: 'search', title: 'No matches', text: 'Remove a filter, or try fewer words, a domain or a tag.' }),
+      })
     ),
   };
 }
@@ -732,7 +679,7 @@ function settingsView(ctx) {
   return {
     title: 'Settings',
     crumbs: [{ label: 'Settings' }],
-    node: h('div', null, hero({ eyebrow: 'Settings', title: 'Settings'}), notices(ctx), h('div', { class: 'settings' }, account, capture, library)),
+    node: h('div', null, hero({ title: 'Settings' }), notices(ctx), h('div', { class: 'settings' }, account, capture, library)),
   };
 }
 

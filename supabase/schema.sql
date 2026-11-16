@@ -184,6 +184,9 @@ create policy "subcategories: only owner" on subcategories
 
 create index if not exists categories_user_position_idx on categories(user_id, position);
 create index if not exists subcategories_category_position_idx on subcategories(category_id, position);
+
+-- Folder colour: a palette key (see web-app/js/lib/colors.js). Null = picked from the id.
+alter table subcategories add column if not exists color text;
 create index if not exists links_category_idx on links(category_id);
 create index if not exists links_subcategory_idx on links(subcategory_id);
 create index if not exists links_user_normalized_url_idx on links(user_id, normalized_url);

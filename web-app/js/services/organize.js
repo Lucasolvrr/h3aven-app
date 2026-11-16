@@ -51,6 +51,20 @@ export function searchBookmarks(query, list = state.bookmarks) {
   return scored.map((entry) => entry.bookmark);
 }
 
+/**
+ * The search dock's filters: every term must match, inside one category or
+ * folder when a place is given. With no terms, the place's bookmarks newest first.
+ */
+export function filterBookmarks({ terms = [], categoryId = null, subId = null }) {
+  let list = state.bookmarks;
+  if (subId) list = list.filter((b) => b.subcategoryId === subId);
+  else if (categoryId) list = list.filter((b) => b.categoryId === categoryId);
+  const query = terms.join(' ').trim();
+  if (query) return searchBookmarks(query, list);
+  if (!subId && !categoryId) return [];
+  return [...list].sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+}
+
 // --- category suggestion -----------------------------------------------------
 // No AI involved: (1) where the user already files links from this site,
 // (2) names of the user's own categories/folders appearing in the page text,

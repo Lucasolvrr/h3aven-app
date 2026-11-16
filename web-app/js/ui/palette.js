@@ -23,7 +23,7 @@ function commands(context) {
     { id: 'nav:home', group: 'Navigate', label: 'Home', icon: 'home', run: go('#/') },
     { id: 'nav:inbox', group: 'Navigate', label: 'Inbox', icon: 'inbox', hint: String(select.counts().inbox || ''), run: go('#/inbox') },
     { id: 'nav:recent', group: 'Navigate', label: 'Recently Saved', icon: 'clock', run: go('#/recent') },
-    { id: 'nav:favorites', group: 'Navigate', label: 'Favorites', icon: 'star', run: go('#/favorites') },
+    { id: 'nav:favorites', group: 'Navigate', label: 'Favorites', icon: 'heart', run: go('#/favorites') },
     { id: 'nav:all', group: 'Navigate', label: 'All Bookmarks', icon: 'grid', run: go('#/all') },
     { id: 'nav:library', group: 'Navigate', label: 'Library', icon: 'library', hint: 'Movies, series, music', run: go('#/library') },
     { id: 'nav:settings', group: 'Navigate', label: 'Settings', icon: 'settings', run: go('#/settings') },

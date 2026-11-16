@@ -15,6 +15,7 @@ import { STORAGE } from '../config.js';
 import { h, readJson, writeJson, debounce } from '../lib/dom.js';
 import { iconEl } from '../lib/icons.js';
 import { faviconFor } from '../lib/url.js';
+import { select } from '../data/store.js';
 import { selection } from './selection.js';
 
 export function columnsFor(width = window.innerWidth) {
@@ -61,11 +62,13 @@ function faviconImg(bookmark, className) {
 }
 
 function signature(b) {
-  return [b.title, b.domain, b.thumbnail, b.favicon, b.isFavorite, b.status].join('\u0001');
+  return [b.title, b.domain, b.thumbnail, b.favicon, b.isFavorite, b.status, select.locationLabel(b), b.categoryId].join('\u0001');
 }
 
 function buildCard(bookmark, requestLayout) {
   const title = bookmark.title || bookmark.domain || bookmark.url;
+  const place = select.locationLabel(bookmark);
+  const placeIcon = bookmark.categoryId ? select.category(bookmark.categoryId)?.icon || 'folder' : 'inbox';
   const thumb = h('div', { class: 'bm-thumb' });
   const setRatio = (ratio) => thumb.style.setProperty('--ar', String(ratio));
 
@@ -110,43 +113,57 @@ function buildCard(bookmark, requestLayout) {
     showFallback();
   }
 
+  // Everything about the bookmark lives on the image and shows on hover:
+  // where it is saved (click to move it) and a tick to select at the top,
+  // title, site and the two actions at the bottom.
   thumb.append(
-    h('button', { type: 'button', class: 'bm-check', dataset: { act: 'select' }, 'aria-label': 'Select bookmark' }, iconEl('check', 13)),
     h(
       'div',
-      { class: 'bm-actions' },
+      { class: 'bm-top' },
       h(
         'button',
-        {
-          type: 'button',
-          class: `bm-act${bookmark.isFavorite ? ' is-on' : ''}`,
-          dataset: { act: 'favorite' },
-          'aria-label': bookmark.isFavorite ? 'Remove from favorites' : 'Add to favorites',
-          'aria-pressed': String(bookmark.isFavorite),
-        },
-        iconEl('star', 14)
+        { type: 'button', class: 'bm-place', dataset: { act: 'move' }, 'aria-haspopup': 'menu', 'aria-label': `Saved in ${place}. Move to another place`, title: 'Move to…' },
+        iconEl(placeIcon, 14),
+        h('span', { class: 'bm-place-label' }, place),
+        iconEl('chevron-down', 13)
       ),
-      h('button', { type: 'button', class: 'bm-act', dataset: { act: 'open' }, 'aria-label': 'Open link in a new tab' }, iconEl('arrow-up-right', 14))
+      h('button', { type: 'button', class: 'bm-check', dataset: { act: 'select' }, 'aria-label': 'Select bookmark' }, iconEl('check', 13))
+    ),
+    h(
+      'div',
+      { class: 'bm-bottom' },
+      h(
+        'div',
+        { class: 'bm-info' },
+        faviconImg(bookmark, 'bm-favicon'),
+        h('div', { class: 'bm-text' }, h('h3', { class: 'bm-title' }, title), h('p', { class: 'bm-domain' }, bookmark.domain))
+      ),
+      h(
+        'div',
+        { class: 'bm-actions' },
+        h(
+          'button',
+          {
+            type: 'button',
+            class: `bm-act${bookmark.isFavorite ? ' is-on' : ''}`,
+            dataset: { act: 'favorite' },
+            'aria-label': bookmark.isFavorite ? 'Remove from favorites' : 'Add to favorites',
+            'aria-pressed': String(bookmark.isFavorite),
+          },
+          iconEl('heart', 15)
+        ),
+        h('button', { type: 'button', class: 'bm-act', dataset: { act: 'open' }, 'aria-label': 'Open link in a new tab' }, iconEl('arrow-up-right', 15))
+      )
     )
   );
 
-  return h(
-    'article',
-    { class: 'bm-card', tabindex: '0', role: 'button', 'aria-label': title, dataset: { id: bookmark.id } },
-    thumb,
-    h(
-      'div',
-      { class: 'bm-meta' },
-      faviconImg(bookmark, 'bm-favicon'),
-      h('div', { class: 'bm-text' }, h('h3', { class: 'bm-title' }, title), h('p', { class: 'bm-domain' }, bookmark.domain))
-    )
-  );
+  return h('article', { class: 'bm-card', tabindex: '0', role: 'button', 'aria-label': `${title}, ${bookmark.domain}`, dataset: { id: bookmark.id } }, thumb);
 }
 
 // --- grid ----------------------------------------------------------------------
 
 export class Masonry {
-  /** handlers: { onOpen(id), onFavorite(id), onOpenLink(id) } */
+  /** handlers: { onOpen(id), onFavorite(id), onOpenLink(id), onMove(id, anchorEl) } */
   constructor(handlers) {
     this.handlers = handlers;
     this.items = [];
@@ -272,8 +289,10 @@ export class Masonry {
     const card = event.target.closest('.bm-card');
     if (!card) return;
     const id = card.dataset.id;
-    const act = event.target.closest('[data-act]')?.dataset.act;
+    const control = event.target.closest('[data-act]');
+    const act = control?.dataset.act;
     if (act === 'select') selection.toggle(id);
+    else if (act === 'move') this.handlers.onMove(id, control);
     else if (act === 'favorite') this.handlers.onFavorite(id);
     else if (act === 'open') this.handlers.onOpenLink(id);
     else this.activate(id);

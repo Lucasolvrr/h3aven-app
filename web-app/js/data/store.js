@@ -163,6 +163,7 @@ export async function reload() {
       id: s.id,
       categoryId: s.category_id,
       name: s.name,
+      color: s.color || null,
       position: s.position ?? 0,
     }));
     state.tags = data.tags;
@@ -530,29 +531,53 @@ export async function moveCategory(id, direction) {
   }
 }
 
-export async function createSubcategory(categoryId, name) {
+/** True when a database error is about the folder colour column not existing yet. */
+const isMissingColorColumn = (error) => /color/i.test(error?.message || '') && /column|schema/i.test(error?.message || '');
+
+export async function createSubcategory(categoryId, name, color = null) {
   const clean = name.trim();
   if (!clean) throw new Error('Give the folder a name.');
   const siblings = select.subsOf(categoryId);
   if (siblings.some((s) => s.name.toLowerCase() === clean.toLowerCase())) {
     throw new Error('That folder already exists in this category.');
   }
-  const row = await driver.insertSubcategory({ category_id: categoryId, name: clean, position: nextPosition(siblings) });
-  const sub = { id: row.id, categoryId: row.category_id, name: row.name, position: row.position };
+  const base = { category_id: categoryId, name: clean, position: nextPosition(siblings) };
+  let row;
+  try {
+    row = await driver.insertSubcategory(color ? { ...base, color } : base);
+  } catch (error) {
+    // A database that hasn't had the colour column added yet: create the folder anyway.
+    if (!color || !isMissingColorColumn(error)) throw error;
+    row = await driver.insertSubcategory(base);
+  }
+  const sub = { id: row.id, categoryId: row.category_id, name: row.name, color: row.color || null, position: row.position };
   state.subcategories = [...state.subcategories, sub];
   emit();
   return sub;
 }
 
-export async function renameSubcategory(id, name) {
-  const clean = name.trim();
+/** patch: { name, color } — either or both. */
+export async function updateSubcategory(id, { name, color } = {}) {
   const current = select.subcategory(id);
-  if (!clean || !current) throw new Error('Give the folder a name.');
+  if (!current) throw new Error('That folder no longer exists.');
+  const clean = (name ?? current.name).trim();
+  if (!clean) throw new Error('Give the folder a name.');
   if (select.subsOf(current.categoryId).some((s) => s.id !== id && s.name.toLowerCase() === clean.toLowerCase())) {
     throw new Error('That folder already exists in this category.');
   }
-  await driver.updateSubcategory(id, { name: clean });
-  state.subcategories = state.subcategories.map((s) => (s.id === id ? { ...s, name: clean } : s));
+  const patch = {};
+  if (clean !== current.name) patch.name = clean;
+  if (color !== undefined && color !== current.color) patch.color = color;
+  if (!Object.keys(patch).length) return;
+  try {
+    await driver.updateSubcategory(id, patch);
+  } catch (error) {
+    if ('color' in patch && isMissingColorColumn(error)) {
+      throw new Error('Folder colors need the latest database update: run supabase/schema.sql.');
+    }
+    throw error;
+  }
+  state.subcategories = state.subcategories.map((s) => (s.id === id ? { ...s, ...patch } : s));
   emit();
 }
 

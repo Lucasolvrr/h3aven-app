@@ -2,13 +2,31 @@
    Everything else in the app is built from these — don't hardcode colours,
    radii or timings in component styles. */
 
+/* Geist, self-hosted from the `geist` package (SIL OFL, see fonts/Geist-LICENSE.txt).
+   Both files are variable fonts: one file covers every weight. */
+@font-face {
+  font-family: 'Geist';
+  src: url('../fonts/Geist-Variable.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Geist Serif';
+  src: url('../fonts/GeistSerifVF.woff2') format('woff2');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
-  /* Surfaces: sidebar sits lowest, the workspace is one step up, overlays above */
-  --bg-app: #0a0a0a;
-  --bg-main: #0f0f0f;
-  --surface: #161616;
-  --surface-2: #1c1c1c;
-  --surface-hover: #232323;
+  /* Surfaces: the sidebar shares the page colour, the workspace is a hair lighter,
+     and interactive surfaces step up from there. Depth comes from tone, not lines. */
+  --bg-app: #0f0f0f;
+  --bg-main: #121212;
+  --surface: #181818;
+  --surface-2: #1e1e1e;
+  --surface-hover: #262626;
   --surface-sunken: #0c0c0c;
 
   /* Text */
@@ -18,11 +36,11 @@
   --text-on-light: #0f0f0f;
 
   /* Lines */
-  --border: rgba(255, 255, 255, 0.06);
-  --border-strong: rgba(255, 255, 255, 0.11);
+  --border: rgba(255, 255, 255, 0.045);
+  --border-strong: rgba(255, 255, 255, 0.08);
 
   /* The only two hues in the product */
-  --fav: #e2c275;
+  --fav: #f0707f;
   --danger: #e5796d;
 
   --radius-xs: 4px;
@@ -39,7 +57,9 @@
   --space-6: 28px;
   --space-7: 40px;
 
-  --font-sans: 'Geist Sans', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: 'Geist', 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* Display titles only: page headers, the bookmark detail title, sign-in */
+  --font-serif: 'Geist Serif', 'Iowan Old Style', Georgia, serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
 
   --shadow-pop: 0 14px 44px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
@@ -49,8 +69,8 @@
   --fast: 120ms;
   --medium: 200ms;
 
-  --sidebar-w: 252px;
-  --sidebar-w-collapsed: 60px;
+  --sidebar-w: 264px;
+  --sidebar-w-collapsed: 64px;
   --topbar-h: 52px;
   --gutter: 28px;
 
@@ -197,7 +217,7 @@ kbd {
 .select {
   appearance: none;
   padding-right: 28px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23a1a1a1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 16 16' fill='none' stroke='%23a1a1aa' stroke-width='1.43' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.75 5.875 L8 10.125 L12.25 5.875'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 8px center;
 }
