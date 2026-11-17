@@ -39,7 +39,7 @@ export function createCloudDriver(supabase) {
           fetchAll(() => supabase.from('subcategories').select('*').order('position')),
         ]);
       } catch (error) {
-        console.warn('Category tables unavailable — run the migration in supabase/schema.sql.', error);
+        console.warn('Collection tables unavailable — run the migration in supabase/schema.sql.', error);
         schemaOutdated = true;
       }
 

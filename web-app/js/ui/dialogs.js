@@ -18,7 +18,7 @@ import { fallbackTile, knownRatio } from './masonry.js';
 
 /** Category + subcategory selects that stay in sync. */
 function locationSelects({ categoryId = null, subcategoryId = null, onChange } = {}) {
-  const category = h('select', { class: 'select', 'aria-label': 'Category' });
+  const category = h('select', { class: 'select', 'aria-label': 'Collection' });
   const sub = h('select', { class: 'select', 'aria-label': 'Folder' });
 
   const fillCategories = () => {
@@ -199,12 +199,12 @@ export function openQuickAdd({ url = '', categoryId = null, subcategoryId = null
   const error = h('p', { class: 'field-error', hidden: true });
   const previewBox = h('div', { class: 'qa-preview', hidden: true });
   const note = h('div', { class: 'qa-note', hidden: true });
-  const hint = h('span', { class: 'hint' }, 'No category? It goes to your Inbox.');
+  const hint = h('span', { class: 'hint' }, 'No collection? It goes to your Inbox.');
   const location = locationSelects({
     categoryId, subcategoryId,
     onChange: () => {
       locationTouched = true;
-      hint.textContent = 'No category? It goes to your Inbox.';
+      hint.textContent = 'No collection? It goes to your Inbox.';
     },
   });
   const tags = tagEditor();
@@ -753,17 +753,17 @@ export function openCategoryDialog(category = null) {
       )
     );
   paintPicker();
-  const submit = h('button', { type: 'submit', class: 'btn btn-primary' }, category ? 'Save' : 'Create category');
+  const submit = h('button', { type: 'submit', class: 'btn btn-primary' }, category ? 'Save' : 'Create collection');
   const form = h(
     'form',
     { class: 'dialog' },
-    h('h2', { class: 'dialog-title' }, category ? 'Edit category' : 'New category'),
+    h('h2', { class: 'dialog-title' }, category ? 'Edit collection' : 'New collection'),
     h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Name'), name, error),
     h('label', { class: 'field' }, h('span', { class: 'field-label' }, 'Description'), description),
     h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Icon'), picker),
     h('div', { class: 'dialog-foot' }, h('button', { type: 'button', class: 'btn btn-ghost', onClick: () => modal.close() }, 'Cancel'), submit)
   );
-  const modal = openModal({ label: category ? 'Edit category' : 'New category', content: form, align: 'dock' });
+  const modal = openModal({ label: category ? 'Edit collection' : 'New collection', content: form, align: 'dock' });
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -772,15 +772,15 @@ export function openCategoryDialog(category = null) {
       const payload = { name: name.value, icon: chosen, description: description.value.trim() };
       if (category) {
         await updateCategory(category.id, payload);
-        toast('Category updated');
+        toast('Collection updated');
       } else {
         const created = await createCategory(payload);
-        toast('Category created');
+        toast('Collection created');
         location.hash = `#/c/${created.id}`;
       }
       modal.close();
     } catch (err) {
-      error.textContent = err.message || 'Could not save the category.';
+      error.textContent = err.message || 'Could not save the collection.';
       error.hidden = false;
       submit.disabled = false;
     }
@@ -796,7 +796,7 @@ export async function confirmDeleteCategory(category) {
       : 'Its folders are removed too.',
   });
   if (!yes) return;
-  if (await attempt(() => deleteCategory(category.id), 'Category deleted')) {
+  if (await attempt(() => deleteCategory(category.id), 'Collection deleted')) {
     if (location.hash.includes(category.id)) location.hash = '#/';
   }
 }
@@ -827,7 +827,7 @@ export function openFolderDialog(categoryId, folder = null) {
     'form',
     { class: 'dialog' },
     h('h2', { class: 'dialog-title' }, title),
-    h('label', { class: 'field' }, h('span', { class: 'field-label' }, folder ? 'Name' : `Folder in ${select.category(categoryId)?.name || 'category'}`), input, error),
+    h('label', { class: 'field' }, h('span', { class: 'field-label' }, folder ? 'Name' : `Folder in ${select.category(categoryId)?.name || 'collection'}`), input, error),
     h('div', { class: 'field' }, h('span', { class: 'field-label' }, 'Color'), swatches),
     h('div', { class: 'dialog-foot' }, h('button', { type: 'button', class: 'btn btn-ghost', onClick: () => modal.close() }, 'Cancel'), submit)
   );
@@ -854,7 +854,7 @@ export async function confirmDeleteFolder(folder) {
   const parent = select.category(folder.categoryId);
   const yes = await confirmDialog({
     title: `Delete “${folder.name}”?`,
-    message: count ? `${plural(count, 'bookmark')} stay in ${parent?.name || 'the category'}, without a folder.` : null,
+    message: count ? `${plural(count, 'bookmark')} stay in ${parent?.name || 'the collection'}, without a folder.` : null,
   });
   if (!yes) return;
   if (await attempt(() => deleteSubcategory(folder.id), 'Folder deleted')) {

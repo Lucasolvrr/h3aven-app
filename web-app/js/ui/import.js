@@ -55,7 +55,7 @@ function openImportDialog(fileName, parsed) {
         h(
           'p',
           { class: 'dialog-text' },
-          `Your browser folders come across as they are: ${plural(plan.tree.length, 'category', 'categories')}${plan.newCategories ? ` (${formatNumber(plan.newCategories)} new)` : ''} with ${plural(plan.tree.reduce((n, c) => n + c.folders.length, 0), 'folder')} inside${plan.newFolders ? ` (${formatNumber(plan.newFolders)} new)` : ''}.`,
+          `Your browser folders come across as they are: ${plural(plan.tree.length, 'collection', 'collections')}${plan.newCategories ? ` (${formatNumber(plan.newCategories)} new)` : ''} with ${plural(plan.tree.reduce((n, c) => n + c.folders.length, 0), 'folder')} inside${plan.newFolders ? ` (${formatNumber(plan.newFolders)} new)` : ''}.`,
           plan.inbox ? ` ${plural(plan.inbox, 'link')} outside any folder ${plan.inbox === 1 ? 'goes' : 'go'} to your Inbox.` : ''
         ),
         h(
@@ -76,7 +76,7 @@ function openImportDialog(fileName, parsed) {
                 )
             )
           ),
-          plan.tree.length > MAX_SHOWN && h('li', { class: 'import-tree-more' }, `+ ${plural(plan.tree.length - MAX_SHOWN, 'more category', 'more categories')}`)
+          plan.tree.length > MAX_SHOWN && h('li', { class: 'import-tree-more' }, `+ ${plural(plan.tree.length - MAX_SHOWN, 'more collection', 'more collections')}`)
         )
       )
     : h('p', { class: 'dialog-text' }, 'The file has no folders, so everything goes to your Inbox.');

@@ -105,7 +105,7 @@ export function mountShell(app) {
       return [
         { label: 'New bookmark', icon: 'bookmark', hint: 'Paste a link', run: () => quickAdd() },
         category && { label: `New folder in ${category.name}`, icon: 'folder-plus', hint: 'Folder', run: () => openFolderDialog(category.id) },
-        { label: 'New category', icon: 'folder-plus', hint: 'Category', run: () => openCategoryDialog() },
+        { label: 'New collection', icon: 'folder-plus', hint: 'Collection', run: () => openCategoryDialog() },
         state.mode === 'cloud' && { label: 'Add a movie, series or song', icon: 'film', hint: 'Library', run: () => openMediaSearch() },
       ].filter(Boolean);
     },
@@ -195,7 +195,7 @@ export function mountShell(app) {
         { label: 'Move up', icon: 'arrow-up', disabled: index === 0, onSelect: () => attempt(() => moveCategory(category.id, -1)) },
         { label: 'Move down', icon: 'arrow-down', disabled: index === state.categories.length - 1, onSelect: () => attempt(() => moveCategory(category.id, 1)) },
         { separator: true },
-        { label: 'Delete category', icon: 'trash', danger: true, onSelect: () => confirmDeleteCategory(category) },
+        { label: 'Delete collection', icon: 'trash', danger: true, onSelect: () => confirmDeleteCategory(category) },
       ],
       { align: 'start' }
     );
@@ -347,11 +347,11 @@ export function mountShell(app) {
       h(
         'div',
         { class: 'sb-heading' },
-        h('span', null, 'Categories'),
-        h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'New category', title: 'New category', onClick: () => openCategoryDialog() }, iconEl('plus', 14))
+        h('span', null, 'Collections'),
+        h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'New collection', title: 'New collection', onClick: () => openCategoryDialog() }, iconEl('plus', 14))
       ),
       tree,
-      state.ready && !ordered.length && h('div', { class: 'sb-row' }, h('button', { type: 'button', class: 'sb-link muted', onClick: () => openCategoryDialog() }, iconEl('folder-plus', 16), h('span', { class: 'sb-label' }, 'Create a category')))
+      state.ready && !ordered.length && h('div', { class: 'sb-row' }, h('button', { type: 'button', class: 'sb-link muted', onClick: () => openCategoryDialog() }, iconEl('folder-plus', 16), h('span', { class: 'sb-label' }, 'Create a collection')))
     );
 
     const media = h(

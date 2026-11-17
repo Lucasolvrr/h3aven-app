@@ -102,12 +102,17 @@ function buildCard(bookmark, requestLayout) {
         requestLayout();
       }
     });
+    // The backing behind the title on hover: the same picture, blurred. It is
+    // bigger than the card and clipped by it, so the soft blurred edges fall
+    // outside instead of leaving a light rim (which backdrop-filter did).
+    const veil = h('div', { class: 'bm-veil', 'aria-hidden': 'true' }, h('img', { alt: '', loading: 'lazy', decoding: 'async', referrerpolicy: 'no-referrer', src: bookmark.thumbnail }));
     img.addEventListener('error', () => {
       img.remove();
+      veil.remove();
       showFallback();
       requestLayout();
     });
-    thumb.append(img);
+    thumb.append(img, veil);
   } else if (bookmark.status === 'pending') {
     // Metadata is still being fetched.
     setRatio(DEFAULT_RATIO);
@@ -144,6 +149,9 @@ function buildCard(bookmark, requestLayout) {
       h(
         'div',
         { class: 'bm-actions' },
+        // Open first, heart last: a favourite's heart stays visible when the
+        // card is not hovered, so it sits in the corner rather than floating.
+        h('button', { type: 'button', class: 'bm-act', dataset: { act: 'open' }, 'aria-label': 'Open link in a new tab' }, iconEl('arrow-up-right', 15)),
         h(
           'button',
           {
@@ -154,8 +162,7 @@ function buildCard(bookmark, requestLayout) {
             'aria-pressed': String(bookmark.isFavorite),
           },
           iconEl('heart', 15)
-        ),
-        h('button', { type: 'button', class: 'bm-act', dataset: { act: 'open' }, 'aria-label': 'Open link in a new tab' }, iconEl('arrow-up-right', 15))
+        )
       )
     )
   );
@@ -254,6 +261,8 @@ export class Masonry {
     const gap = columns === 2 ? 10 : columns === 3 ? 14 : 16;
     const columnWidth = (width - gap * (columns - 1)) / columns;
     const cards = [...this.el.children];
+    // Narrow cards drop the favicon so the title keeps its room (see components.css).
+    this.el.classList.toggle('is-narrow', columnWidth < 230);
 
     for (const card of cards) card.style.width = `${columnWidth}px`;
     const heights = cards.map((card) => card.offsetHeight); // one reflow for all reads

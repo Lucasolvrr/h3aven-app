@@ -163,7 +163,7 @@ function notices(ctx) {
           'div',
           null,
           h('strong', null, 'One database step left. '),
-          'Categories, folders and favorites need the new tables. Run the “Bookmark Manager” section at the end of ',
+          'Collections, folders and favorites need the new tables. Run the “Bookmark Manager” section at the end of ',
           h('code', null, 'supabase/schema.sql'),
           ' in the Supabase SQL editor, then reload. Until then your bookmarks are shown read-only in the Inbox.'
         )
@@ -300,7 +300,7 @@ function homeView(ctx, route) {
 const LISTS = {
   favorites: {
     label: 'Favorites',
-    sub: 'The references you keep coming back to, from every category.',
+    sub: 'The references you keep coming back to, from every collection.',
     items: () => select.favorites(),
     empty: { icon: 'heart', title: 'No favorites yet', text: 'Tap the heart on a bookmark and it is kept here.' },
   },
@@ -360,15 +360,15 @@ function folderCard(sub, count) {
 }
 
 function categoryMenuButton(category) {
-  const button = h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Category options', 'aria-haspopup': 'menu', title: 'Category options' }, iconEl('more', 16));
+  const button = h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Collection options', 'aria-haspopup': 'menu', title: 'Collection options' }, iconEl('more', 16));
   button.addEventListener('click', () =>
     openMenu(
       button,
       [
-        { label: 'Edit category', icon: 'pencil', onSelect: () => openCategoryDialog(category) },
+        { label: 'Edit collection', icon: 'pencil', onSelect: () => openCategoryDialog(category) },
         { label: 'New folder', icon: 'folder-plus', onSelect: () => openFolderDialog(category.id) },
         { separator: true },
-        { label: 'Delete category', icon: 'trash', danger: true, onSelect: () => confirmDeleteCategory(category) },
+        { label: 'Delete collection', icon: 'trash', danger: true, onSelect: () => confirmDeleteCategory(category) },
       ],
       { align: 'end' }
     )
@@ -386,7 +386,7 @@ function missingView(label) {
 
 function categoryView(route, ctx) {
   const category = select.category(route.categoryId);
-  if (!category) return missingView('category');
+  if (!category) return missingView('collection');
   const subs = select.subsOf(category.id);
   const items = select.inCategory(category.id);
   const counts = select.counts();
@@ -622,7 +622,7 @@ function searchView(route) {
       node: h(
         'div',
         null,
-        hero({ title: 'Find anything you saved', sub: 'Type in the bar below. Words, categories and folders become filters you can combine.' }),
+        hero({ title: 'Find anything you saved', sub: 'Type in the bar below. Words, collections and folders become filters you can combine.' }),
         tags.length > 0
           ? h(
               'section',
@@ -630,7 +630,7 @@ function searchView(route) {
               h('div', { class: 'section-head' }, h('h2', { class: 'section-title' }, 'Try a tag')),
               h('div', { class: 'chips' }, tags.map((tag) => h('a', { class: 'chip', href: chipsToHash([{ kind: 'term', value: tag }]) }, iconEl('hash', 12), tag)))
             )
-          : emptyState({ icon: 'search', title: 'Search your library', text: 'Titles, links, domains, descriptions, tags, categories and notes are all searched.' })
+          : emptyState({ icon: 'search', title: 'Search your library', text: 'Titles, links, domains, descriptions, tags, collections and notes are all searched.' })
       ),
     };
   }
@@ -796,11 +796,11 @@ function settingsView(ctx) {
   const library = group(
     'Library',
     row(
-      'Starter categories',
+      'Starter collections',
       'Design, Development, Reading, Inspiration, Productivity and Personal, with their folders. Existing ones are left alone.',
       h(
         'button',
-        { type: 'button', class: 'btn btn-subtle', disabled: !starterMissing || state.schemaOutdated, onClick: () => attempt(addStarterCategories, 'Starter categories added') },
+        { type: 'button', class: 'btn btn-subtle', disabled: !starterMissing || state.schemaOutdated, onClick: () => attempt(addStarterCategories, 'Starter collections added') },
         starterMissing ? 'Add' : 'Added'
       )
     ),

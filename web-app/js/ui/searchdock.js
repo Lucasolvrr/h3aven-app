@@ -50,7 +50,7 @@ export function chipsToHash(chips) {
 
 export function chipLabel(chip) {
   if (chip.kind === 'term') return chip.value;
-  if (chip.kind === 'category') return select.category(chip.id)?.name || 'Deleted category';
+  if (chip.kind === 'category') return select.category(chip.id)?.name || 'Deleted collection';
   const sub = select.subcategory(chip.id);
   return sub ? sub.name : 'Deleted folder';
 }
@@ -292,7 +292,7 @@ export function mountSearchDock(host, { getRoute, onLiveQuery, createActions }) 
       const list = recents.filter((term) => !taken.has(`t:${term.toLowerCase()}`)).map((term) => ({ group: 'Recent', kind: 'recent', label: term, icon: 'clock' }));
       if (!hasPlace) {
         for (const category of state.categories.slice(0, 8)) {
-          list.push({ group: 'Categories', kind: 'category', id: category.id, label: category.name, icon: category.icon || 'folder', hint: String(select.counts().category.get(category.id) || 0) });
+          list.push({ group: 'Collections', kind: 'category', id: category.id, label: category.name, icon: category.icon || 'folder', hint: String(select.counts().category.get(category.id) || 0) });
         }
       } else {
         // Inside a category: offer its folders as the next step.
@@ -310,7 +310,7 @@ export function mountSearchDock(host, { getRoute, onLiveQuery, createActions }) 
     const has = (text) => text.toLowerCase().includes(needle);
     const matches = [];
     for (const category of state.categories) {
-      if (has(category.name) && !taken.has(`category:${category.id}`)) matches.push({ kind: 'category', id: category.id, label: category.name, icon: category.icon || 'folder', hint: 'Category' });
+      if (has(category.name) && !taken.has(`category:${category.id}`)) matches.push({ kind: 'category', id: category.id, label: category.name, icon: category.icon || 'folder', hint: 'Collection' });
     }
     for (const sub of state.subcategories) {
       if (has(sub.name) && !taken.has(`sub:${sub.id}`)) matches.push({ kind: 'sub', id: sub.id, label: sub.name, icon: 'folder', hint: select.category(sub.categoryId)?.name || 'Folder' });
@@ -373,7 +373,7 @@ export function mountSearchDock(host, { getRoute, onLiveQuery, createActions }) 
 
   function renderPanel() {
     const query = input.value.trim();
-    const list = h('div', { class: 'dock-list', id: 'dock-list', role: 'listbox', 'aria-label': mode === 'create' ? 'Create' : query ? 'Suggestions' : 'Recent searches and categories' }, h('div', { class: 'dock-row-glow', 'aria-hidden': 'true' }));
+    const list = h('div', { class: 'dock-list', id: 'dock-list', role: 'listbox', 'aria-label': mode === 'create' ? 'Create' : query ? 'Suggestions' : 'Recent searches and collections' }, h('div', { class: 'dock-row-glow', 'aria-hidden': 'true' }));
     let lastGroup = null;
     rows.forEach((row, index) => {
       if (row.group !== lastGroup) {

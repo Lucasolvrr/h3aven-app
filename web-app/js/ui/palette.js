@@ -27,10 +27,10 @@ function commands(context) {
   ];
 
   for (const category of state.categories) {
-    list.push({ id: `cat:${category.id}`, group: 'Categories', label: category.name, icon: category.icon, hint: 'Category', run: go(`#/c/${category.id}`), searchOnly: true });
+    list.push({ id: `cat:${category.id}`, group: 'Collections', label: category.name, icon: category.icon, hint: 'Collection', run: go(`#/c/${category.id}`), searchOnly: true });
     for (const sub of select.subsOf(category.id)) {
       list.push({
-        id: `sub:${sub.id}`, group: 'Categories', label: sub.name, icon: 'folder', hint: category.name,
+        id: `sub:${sub.id}`, group: 'Collections', label: sub.name, icon: 'folder', hint: category.name,
         run: go(`#/c/${category.id}/${sub.id}`), searchOnly: true,
       });
     }
@@ -38,7 +38,7 @@ function commands(context) {
 
   list.push(
     { id: 'new:bookmark', group: 'Create', label: 'Add a bookmark', icon: 'plus', run: () => openQuickAdd(context.location) },
-    { id: 'new:category', group: 'Create', label: 'Create a category', icon: 'folder-plus', run: () => openCategoryDialog() }
+    { id: 'new:category', group: 'Create', label: 'Create a collection', icon: 'folder-plus', run: () => openCategoryDialog() }
   );
   if (context.location.categoryId) {
     const category = select.category(context.location.categoryId);
@@ -68,7 +68,7 @@ export function openPalette(context, initialQuery = '') {
   let active = 0;
 
   const input = h('input', {
-    type: 'text', placeholder: 'Search bookmarks, categories and commands…', autofocus: true, autocomplete: 'off', spellcheck: 'false',
+    type: 'text', placeholder: 'Search bookmarks, collections and commands…', autofocus: true, autocomplete: 'off', spellcheck: 'false',
     role: 'combobox', 'aria-expanded': 'true', 'aria-controls': 'palette-list', 'aria-label': 'Search or run a command', value: initialQuery,
   });
   const list = h('div', { class: 'palette-list', id: 'palette-list', role: 'listbox' });

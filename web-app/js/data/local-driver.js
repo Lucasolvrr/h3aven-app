@@ -92,7 +92,7 @@ export function createLocalDriver() {
 
     async insertCategory(row) {
       if (db.categories.some((c) => c.name.toLowerCase() === row.name.toLowerCase())) {
-        throw new Error('A category with that name already exists');
+        throw new Error('A collection with that name already exists');
       }
       const record = { id: uid(), icon: 'folder', description: null, position: 0, ...row, created_at: now() };
       db.categories.push(record);
@@ -123,7 +123,7 @@ export function createLocalDriver() {
       const clash = db.subcategories.some(
         (s) => s.category_id === row.category_id && s.name.toLowerCase() === row.name.toLowerCase()
       );
-      if (clash) throw new Error('That folder already exists in this category');
+      if (clash) throw new Error('That folder already exists in this collection');
       const record = { id: uid(), position: 0, ...row, created_at: now() };
       db.subcategories.push(record);
       save();

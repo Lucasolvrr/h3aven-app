@@ -525,9 +525,9 @@ function nextPosition(list) {
 
 export async function createCategory({ name, icon = 'folder', description = '' }) {
   const clean = name.trim();
-  if (!clean) throw new Error('Give the category a name.');
+  if (!clean) throw new Error('Give the collection a name.');
   if (state.categories.some((c) => c.name.toLowerCase() === clean.toLowerCase())) {
-    throw new Error('A category with that name already exists.');
+    throw new Error('A collection with that name already exists.');
   }
   requireSchema({ category_id: true });
   const row = await driver.insertCategory({
@@ -547,9 +547,9 @@ export async function updateCategory(id, patch) {
   const clean = { ...patch };
   if ('name' in clean) {
     clean.name = clean.name.trim();
-    if (!clean.name) throw new Error('Give the category a name.');
+    if (!clean.name) throw new Error('Give the collection a name.');
     if (previous.some((c) => c.id !== id && c.name.toLowerCase() === clean.name.toLowerCase())) {
-      throw new Error('A category with that name already exists.');
+      throw new Error('A collection with that name already exists.');
     }
   }
   state.categories = previous.map((c) => (c.id === id ? { ...c, ...clean } : c));
@@ -605,7 +605,7 @@ export async function createSubcategory(categoryId, name, color = null) {
   if (!clean) throw new Error('Give the folder a name.');
   const siblings = select.subsOf(categoryId);
   if (siblings.some((s) => s.name.toLowerCase() === clean.toLowerCase())) {
-    throw new Error('That folder already exists in this category.');
+    throw new Error('That folder already exists in this collection.');
   }
   const base = { category_id: categoryId, name: clean, position: nextPosition(siblings) };
   let row;
@@ -629,7 +629,7 @@ export async function updateSubcategory(id, { name, color } = {}) {
   const clean = (name ?? current.name).trim();
   if (!clean) throw new Error('Give the folder a name.');
   if (select.subsOf(current.categoryId).some((s) => s.id !== id && s.name.toLowerCase() === clean.toLowerCase())) {
-    throw new Error('That folder already exists in this category.');
+    throw new Error('That folder already exists in this collection.');
   }
   const patch = {};
   if (clean !== current.name) patch.name = clean;
