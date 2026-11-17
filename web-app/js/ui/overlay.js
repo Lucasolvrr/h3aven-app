@@ -7,6 +7,41 @@ import { iconEl } from '../lib/icons.js';
 
 const overlayRoot = () => document.getElementById('overlays');
 const stack = [];
+let dialogUid = 0;
+
+/**
+ * Gives every app dialog the same frame: the title (and a first line of
+ * description) with a round close button in a header, a hairline, then the
+ * body. Works on the existing markup — a `.dialog` whose first child is its
+ * `.dialog-title`, or a `.dialog-head` holding it — so each dialog keeps its
+ * own content. Returns the ids for aria-labelledby / aria-describedby.
+ */
+function frameDialog(content, close) {
+  if (!(content instanceof Element) || !content.classList.contains('dialog') || content.classList.contains('is-framed')) return null;
+  const first = content.firstElementChild;
+  const head = first?.classList.contains('dialog-head') ? first : null;
+  const title = head ? head.querySelector('.dialog-title') : first?.classList.contains('dialog-title') ? first : null;
+  if (!title) return null;
+  const after = (head || title).nextElementSibling;
+  const description = after?.matches('p.dialog-text') ? after : null;
+  const id = `dlg-${++dialogUid}`;
+  title.id ||= `${id}-title`;
+  if (description) description.id ||= `${id}-desc`;
+  head?.remove(); // its own close button is replaced by the frame's
+  title.remove();
+  description?.remove();
+  const header = h(
+    'div',
+    { class: 'dialog-header' },
+    h('div', { class: 'dialog-heading' }, title, description),
+    h('button', { type: 'button', class: 'dialog-close', 'aria-label': 'Close dialog', onClick: close }, iconEl('x', 16))
+  );
+  const body = h('div', { class: 'dialog-body' });
+  body.append(...content.childNodes);
+  content.replaceChildren(header, body);
+  content.classList.add('is-framed');
+  return { titleId: title.id, descriptionId: description?.id || null };
+}
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -35,13 +70,20 @@ export function openModal({ content, className = '', align = 'center', label = '
   }
   const overlay = h('div', { class: `overlay ${align === 'top' ? 'overlay-top' : ''}${docked ? ' overlay-dock' : ''}` }, panel);
   const entry = { closed: false };
+  const framed = frameDialog(content, () => entry.close());
+  if (framed) {
+    panel.removeAttribute('aria-label');
+    panel.setAttribute('aria-labelledby', framed.titleId);
+    if (framed.descriptionId) panel.setAttribute('aria-describedby', framed.descriptionId);
+  }
 
   entry.close = () => {
     if (entry.closed) return;
     entry.closed = true;
     stack.splice(stack.indexOf(entry), 1);
     overlay.classList.add('is-closing');
-    setTimeout(() => overlay.remove(), 140);
+    // Closing is shorter and quieter than opening (see .overlay.is-closing).
+    setTimeout(() => overlay.remove(), 180);
     onClose?.();
     if (previousFocus && document.contains(previousFocus)) previousFocus.focus({ preventScroll: true });
   };

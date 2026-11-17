@@ -9,7 +9,7 @@ import { iconEl } from '../lib/icons.js';
 import { siteGroups, inSiteGroup } from '../lib/sites.js';
 import { faviconFor } from '../lib/url.js';
 import { folderColor, colorVars, FOLDER_COLORS } from '../lib/colors.js';
-import { state, select, sortBookmarks, SORTS, displayName, addStarterCategories } from '../data/store.js';
+import { state, select, sortBookmarks, SORTS, displayName, addStarterCategories, updateCategory, updateSubcategory } from '../data/store.js';
 import { STARTER_CATEGORIES } from '../data/sample.js';
 import { filterBookmarks } from '../services/organize.js';
 import { live, chipsToHash, chipLabel } from './searchdock.js';
@@ -20,8 +20,13 @@ import { importButton, previewStatus } from './import.js';
 import { previews } from '../services/importer.js';
 import { extension } from '../services/extension.js';
 import { onboardingCard } from './onboarding.js';
+import { segmentedTabs } from './segmented.js';
+import { passwordStrength } from './password-strength.js';
+import { actionSwap } from './action-swap.js';
+import { inlineEdit } from './inline-edit.js';
 import { selection } from './selection.js';
-import { openMenu, toast, attempt } from './overlay.js';
+import { openMenu, toast, attempt, hasOpenModal } from './overlay.js';
+import { openConnectDialog, connectDialogOwner } from './connect.js';
 import { PASSWORD_MIN, hasPassword } from './auth.js';
 import {
   openBookmark, openLink, toggleFavorite, openQuickAdd, openCategoryDialog, confirmDeleteCategory,
@@ -127,8 +132,8 @@ function sectionControls(sortable) {
 }
 
 /** A titled masonry of bookmarks with Select and Sort, or an empty state. */
-function gridSection({ title, items, key, sortable = true, empty, extra, lead }) {
-  if (!items.length && !lead) return h('section', { class: 'section' }, empty);
+function gridSection({ title, titleNode, items, key, sortable = true, empty, extra, lead }) {
+  if (!items.length && !lead && !titleNode) return h('section', { class: 'section' }, empty);
   const sorted = sortable ? sortBookmarks(items, sortMode) : items;
   return h(
     'section',
@@ -136,7 +141,7 @@ function gridSection({ title, items, key, sortable = true, empty, extra, lead })
     h(
       'div',
       { class: 'section-head' },
-      lead ? h('div', { class: 'section-lead' }, h('h2', { class: 'sr-only' }, title), lead) : h('h2', { class: 'section-title' }, title, h('span', { class: 'count' }, formatNumber(items.length))),
+      lead ? h('div', { class: 'section-lead' }, h('h2', { class: 'sr-only' }, title), lead) : h('h2', { class: 'section-title' }, titleNode || title, h('span', { class: 'count' }, formatNumber(items.length))),
       h('div', { class: 'section-actions' }, extra, sectionControls(sortable))
     ),
     items.length ? mountGrid(sorted, `${key}:${sortable ? sortMode : ''}`) : empty
@@ -393,6 +398,36 @@ function missingView(label) {
   };
 }
 
+/** Saves, and if it fails says why (a toast), then lets inlineEdit roll the text back. */
+async function saveOrSay(save) {
+  try {
+    await save();
+  } catch (error) {
+    toast(error.message || 'Could not save.', { type: 'error' });
+    throw error;
+  }
+}
+
+/** A collection's header: its name and description, both editable in place. */
+function collectionHero(category) {
+  return hero({
+    title: inlineEdit({
+      value: category.name,
+      label: 'Collection name',
+      validate: (next) => (next ? null : 'The name can’t be empty'),
+      onSave: (next) => saveOrSay(() => updateCategory(category.id, { name: next })),
+    }),
+    sub: inlineEdit({
+      value: category.description || '',
+      label: 'Description',
+      placeholder: 'Add a description',
+      multiline: true,
+      variant: 'body',
+      onSave: (next) => saveOrSay(() => updateCategory(category.id, { description: next })),
+    }),
+  });
+}
+
 function categoryView(route, ctx) {
   const category = select.category(route.categoryId);
   if (!category) return missingView('collection');
@@ -434,6 +469,13 @@ function categoryView(route, ctx) {
     actions = [more];
     panel = gridSection({
       title: sub.name,
+      titleNode: inlineEdit({
+        value: sub.name,
+        label: 'Folder name',
+        variant: 'section',
+        validate: (next) => (next ? null : 'The name can’t be empty'),
+        onSave: (next) => saveOrSay(() => updateSubcategory(sub.id, { name: next })),
+      }),
       items: select.inSubcategory(sub.id),
       key: `sub:${sub.id}`,
       empty: emptyState({
@@ -452,7 +494,7 @@ function categoryView(route, ctx) {
       title: category.name,
       crumbs: [{ label: category.name }],
       actions: [categoryMenuButton(category)],
-      node: h('div', null, hero({ title: category.name, sub: category.description }), notices(ctx),
+      node: h('div', null, collectionHero(category), notices(ctx),
       h(
         'section',
         { class: 'section' },
@@ -485,7 +527,7 @@ function categoryView(route, ctx) {
     node: h(
       'div',
       null,
-      hero({ title: category.name, sub: category.description }),
+      collectionHero(category),
       notices(ctx),
       morphingTabs({
         id: category.id,
@@ -594,13 +636,12 @@ function libraryView(route, ctx) {
         h(
           'div',
           { class: 'section-head' },
-          h(
-            'nav',
-            { class: 'tabs', 'aria-label': 'Library type', style: 'margin:0;padding:0' },
-            LIBRARY_TABS.map((t) =>
-              h('a', { class: `tab${t.key === tab ? ' is-active' : ''}`, href: `#/library/${t.key}`, 'aria-current': t.key === tab ? 'page' : null }, t.label)
-            )
-          ),
+          segmentedTabs({
+            id: 'library',
+            label: 'Library type',
+            active: tab,
+            items: LIBRARY_TABS.map((t) => ({ key: t.key, label: t.label, href: `#/library/${t.key}`, badge: media.filter((m) => m.contentType === t.key).length || null })),
+          }),
           add
         ),
         shown.length
@@ -670,114 +711,6 @@ function searchView(route) {
   };
 }
 
-// --- connect the extension ----------------------------------------------------------------------
-// Where the extension's "Connect" button lands (#/connect). Signed in, one
-// click hands the extension a session of its own (see services/extension.js);
-// no token to copy.
-
-const connectFlow = { phase: 'idle', status: null, error: '' };
-let connectHost = null; // the card currently on screen (views are rebuilt on every store change)
-
-function connectView(ctx) {
-  connectHost = h('div', { class: 'connect' });
-  const cloud = state.mode === 'cloud';
-  const email = state.user?.email || '';
-
-  const art = (icon) =>
-    h(
-      'div',
-      { class: 'folder empty-art', 'aria-hidden': 'true', style: colorVars(FOLDER_COLORS[connectFlow.phase === 'done' ? 4 : 0]) },
-      h('div', { class: 'folder-back' }),
-      h('div', { class: 'folder-paper' }),
-      h('div', { class: 'folder-paper' }),
-      h('div', { class: 'folder-front' }, iconEl(icon, 22))
-    );
-  const button = (label, onClick, kind = 'btn-primary', icon) => h('button', { type: 'button', class: `btn ${kind} btn-lg`, onClick }, icon && iconEl(icon, 15), label);
-
-  const check = async () => {
-    connectFlow.phase = 'checking';
-    paint();
-    connectFlow.status = await extension.status();
-    connectFlow.phase = connectFlow.status ? 'ready' : 'missing';
-    paint();
-  };
-
-  const connect = async () => {
-    connectFlow.phase = 'connecting';
-    connectFlow.error = '';
-    paint();
-    try {
-      const token = await ctx.getSyncToken();
-      connectFlow.status = await extension.connect(token, email);
-      connectFlow.phase = 'done';
-    } catch (error) {
-      connectFlow.error = error.message;
-      connectFlow.phase = 'ready';
-    }
-    paint();
-  };
-
-  function paint() {
-    const host = connectHost;
-    if (!host) return;
-    const { phase, status, error } = connectFlow;
-    let parts;
-    if (phase === 'idle' || phase === 'checking') {
-      parts = [art('link'), h('p', { class: 'empty-title' }, 'Looking for the extension…')];
-    } else if (phase === 'missing') {
-      parts = [
-        art('link'),
-        h('p', { class: 'empty-title' }, 'Add the extension first'),
-        h('p', { class: 'empty-text' }, 'This browser doesn’t have the h3aven extension yet. Load it once, then come back to this tab:'),
-        h(
-          'ol',
-          { class: 'connect-steps' },
-          h('li', null, 'Open ', h('code', null, 'chrome://extensions'), ' and turn on Developer mode.'),
-          h('li', null, 'Click Load unpacked and choose the ', h('code', null, 'chrome-extension'), ' folder of h3aven.'),
-          h('li', null, 'Press Try again below.')
-        ),
-        // A freshly installed extension only reaches tabs loaded after it, so reload.
-        button('Try again', () => location.reload(), 'btn-subtle'),
-      ];
-    } else if (!cloud) {
-      parts = [
-        art('log-in'),
-        h('p', { class: 'empty-title' }, 'Sign in to connect'),
-        h('p', { class: 'empty-text' }, 'The extension saves into your account. Sign in, and it connects with one click.'),
-        button('Sign in', () => ctx.signIn(), 'btn-primary', 'log-in'),
-      ];
-    } else if (phase === 'done') {
-      parts = [
-        art('check'),
-        h('p', { class: 'empty-title' }, 'Extension connected'),
-        h('p', { class: 'empty-text' }, 'Click the h3aven icon in the toolbar to save the page you’re on. You can close this tab.'),
-        button('Go to your library', () => (location.hash = '#/'), 'btn-subtle'),
-      ];
-    } else {
-      const same = status?.connected && status.email && status.email === email;
-      parts = [
-        art('link'),
-        h('p', { class: 'empty-title' }, same ? 'Already connected' : 'Connect the extension'),
-        h('p', { class: 'empty-text' }, same ? 'Pages you save from the toolbar already go to ' : 'Save the page you’re on, from any tab, straight into ', h('strong', null, email), same ? '.' : '’s library.'),
-        status?.connected && !same && status.email && h('p', { class: 'connect-note' }, `It is connected to ${status.email} now; this replaces it.`),
-        error && h('p', { class: 'connect-error', role: 'alert' }, error),
-        h(
-          'div',
-          { class: 'connect-actions' },
-          same
-            ? [button('Done', () => (location.hash = '#/'), 'btn-primary'), button('Reconnect', connect, 'btn-subtle')]
-            : button(phase === 'connecting' ? 'Connecting…' : 'Connect', connect, 'btn-primary', 'link')
-        ),
-      ];
-    }
-    host.replaceChildren(h('div', { class: 'empty connect-card' }, parts));
-    if (phase === 'connecting') host.querySelectorAll('button').forEach((b) => (b.disabled = true));
-  }
-
-  if (connectFlow.phase === 'idle') check();
-  else paint();
-  return { title: 'Connect the extension', crumbs: [{ label: 'Connect the extension' }], node: connectHost };
-}
 
 // --- settings -------------------------------------------------------------------------------------
 
@@ -787,7 +720,48 @@ function extensionRow(row, ctx, cloud) {
   const controls = h('div', { class: 'section-actions' });
   const el = row('Chrome extension', desc, controls);
   const text = el.querySelector('.set-row-desc');
-  const go = (label, kind = 'btn-subtle') => h('button', { type: 'button', class: `btn ${kind}`, onClick: () => (location.hash = '#/connect') }, label);
+  const email = state.user?.email || '';
+
+  // The states the pill moves between, and what pressing it does in each.
+  const STATES = {
+    checking: { id: 'checking', label: 'Checking', tone: 'neutral', busy: true },
+    missing: { id: 'missing', label: 'Set up', icon: 'arrow-right', tone: 'neutral' },
+    signIn: { id: 'signIn', label: 'Sign in to connect', icon: 'log-in', tone: 'neutral' },
+    connect: { id: 'connect', label: 'Connect', icon: 'link', tone: 'accent' },
+    connected: { id: 'connected', label: 'Connected', icon: 'check', tone: 'success' },
+  };
+  const describe = (id, status) => {
+    text.textContent =
+      id === 'connected'
+        ? `Connected to ${status?.email || email || 'your account'}. Press to connect again.`
+        : id === 'missing'
+          ? `${desc} Not installed in this browser yet.`
+          : id === 'signIn'
+            ? `${desc} Sign in first, then connect it in one click.`
+            : `${desc} Installed, not connected yet.`;
+  };
+
+  // Connecting happens right here: a session of the extension's own, handed over in place.
+  const connect = () =>
+    pill.run(
+      async () => {
+        const token = await ctx.getSyncToken();
+        const status = await extension.connect(token, email);
+        if (!status.connected) throw new Error('The extension did not keep the connection.');
+        describe('connected', status);
+      },
+      { pendingLabel: pill.state.id === 'connected' ? 'Reconnecting' : 'Connecting', done: STATES.connected, failureLabel: 'Try again' }
+    );
+
+  const pill = actionSwap({
+    state: STATES.checking,
+    onPress: (current) => {
+      if (current.id === 'missing') openConnectDialog(ctx, { onClose: () => ctx.rerender() });
+      else if (current.id === 'signIn') ctx.signIn();
+      else if (current.id === 'connect' || current.id === 'connected') connect();
+    },
+  });
+
   // The old way, kept for the odd case where the page can't reach the extension.
   const copyToken = h(
     'button',
@@ -797,30 +771,26 @@ function extensionRow(row, ctx, cloud) {
       title: 'Copy a token to paste in the extension’s options instead',
       onClick: async (event) => {
         const button = event.currentTarget;
-        button.disabled = true;
+        button.setAttribute('aria-busy', 'true');
         try {
           const token = await ctx.getSyncToken();
           toast((await copyText(token)) ? 'Token copied. Paste it in the extension’s options.' : 'Could not copy the token', { type: 'info' });
         } catch (error) {
           toast(error.message, { type: 'error' });
         } finally {
-          button.disabled = false;
+          button.removeAttribute('aria-busy');
         }
       },
     },
     'Copy token'
   );
+  controls.append(...[cloud && copyToken, pill.el].filter(Boolean));
+
   extension.status().then((status) => {
-    if (!status) {
-      text.textContent = `${desc} Not installed in this browser yet.`;
-      controls.replaceChildren(go('Set up'));
-    } else if (status.connected) {
-      text.textContent = status.email ? `Connected to ${status.email}.` : 'Connected.';
-      controls.replaceChildren(...[cloud && copyToken, go('Reconnect')].filter(Boolean));
-    } else {
-      text.textContent = `${desc} Installed, not connected yet.`;
-      controls.replaceChildren(...[cloud && copyToken, go('Connect', 'btn-primary')].filter(Boolean));
-    }
+    const id = !status ? 'missing' : !cloud ? 'signIn' : status.connected ? 'connected' : 'connect';
+    describe(id, status);
+    pill.set(STATES[id], { announce: false });
+    if (id === 'missing') copyToken.remove();
   });
   return el;
 }
@@ -904,18 +874,27 @@ function settingsView(ctx) {
     const pw = (placeholder, autocomplete) =>
       field('lock', { type: 'password', placeholder, 'aria-label': placeholder, required: true, autocomplete, minlength: autocomplete === 'new-password' ? String(PASSWORD_MIN) : null });
     const current = needsCurrent ? pw('Current password', 'current-password') : null;
-    const next = pw('New password', 'new-password');
+    // The new one shows its strength as it is typed, with a strong suggestion on offer.
+    const next = passwordStrength({ label: 'New password', minLength: PASSWORD_MIN });
     const confirm = pw('Confirm new password', 'new-password');
     const submit = h('button', { type: 'submit', class: 'btn btn-primary' }, 'Save password');
     const cancel = h('button', { type: 'button', class: 'btn btn-ghost' }, 'Cancel');
-    const form = h('form', { class: 'set-expand-form' }, current?.el, next.el, confirm.el, h('div', { class: 'set-expand-actions' }, cancel, submit));
+    const suggest = h('button', { type: 'button', class: 'btn btn-subtle' }, 'Suggest one');
+    suggest.addEventListener('click', () => {
+      confirm.input.value = next.suggest();
+      next.input.focus();
+    });
+    const form = h('form', { class: 'set-expand-form' }, current?.el, next.el, confirm.el, h('div', { class: 'set-expand-actions' }, suggest, h('span', { class: 'set-expand-gap' }), cancel, submit));
     panel.append(form);
     const setOpen = (open) => {
       panel.hidden = !open;
       opener.setAttribute('aria-expanded', String(open));
       opener.hidden = open;
       if (open) (current || next).input.focus();
-      else form.reset();
+      else {
+        form.reset();
+        next.reset();
+      }
     };
     opener.addEventListener('click', () => setOpen(true));
     cancel.addEventListener('click', () => setOpen(false));
@@ -1043,7 +1022,14 @@ export function renderView(route, ctx) {
     case 'settings':
       return settingsView(ctx);
     case 'connect':
-      return connectView(ctx);
+      // #/connect (where the extension's button lands): the connect dialog over Home.
+      if (!connectDialogOwner() && !hasOpenModal()) {
+        setTimeout(() => {
+          if (connectDialogOwner() || hasOpenModal()) return;
+          openConnectDialog(ctx, { onClose: () => location.hash.startsWith('#/connect') && (location.hash = '#/') });
+        }, 0);
+      }
+      return homeView(ctx, { name: 'home', key: 'home' });
     default:
       return homeView(ctx, route);
   }

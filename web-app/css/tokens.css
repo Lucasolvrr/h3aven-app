@@ -133,31 +133,52 @@ ul { list-style: none; margin: 0; padding: 0; }
 
 /* --- Buttons --------------------------------------------------------------- */
 
+/* Buttons (after uiarc's Button, fully round): one primary per surface; the
+   secondary keeps a border and a quiet fill; presses dip slightly on a snappy curve. */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  height: 32px;
-  padding: 0 12px;
-  border-radius: var(--radius-md);
-  font-size: 13px;
+  gap: 7px;
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 14px;
   font-weight: 500;
   white-space: nowrap;
   color: var(--text);
-  transition: background var(--fast), color var(--fast), opacity var(--fast);
+  transition: background var(--fast), border-color var(--fast), color var(--fast), opacity var(--fast), transform 160ms cubic-bezier(0.3, 1.4, 0.5, 1);
 }
-.btn:disabled { opacity: 0.45; cursor: default; }
+.btn:active:not(:disabled):not([aria-busy='true']) { transform: scale(0.97); }
+.btn:focus-visible { outline: 2px solid rgba(242, 242, 242, 0.7); outline-offset: 2px; }
+.btn:disabled { cursor: default; }
+/* primary: the one main action */
 .btn-primary { background: var(--text); color: var(--text-on-light); }
-.btn-primary:hover:not(:disabled) { background: #ffffff; }
-.btn-subtle { background: var(--surface-2); }
-.btn-subtle:hover:not(:disabled) { background: var(--surface-hover); }
+.btn-primary:disabled { opacity: 0.45; }
+/* secondary: border and a quiet fill; disabled keeps the border, mutes the rest */
+.btn-subtle { background: rgba(255, 255, 255, 0.03); border-color: rgba(255, 255, 255, 0.1); }
+.btn-subtle:disabled { background: rgba(255, 255, 255, 0.015); color: var(--text-3); }
+/* ghost: just the label */
 .btn-ghost { color: var(--text-2); }
-.btn-ghost:hover:not(:disabled) { background: var(--surface-hover); color: var(--text); }
-.btn-danger { color: var(--danger); }
-.btn-danger:hover:not(:disabled) { background: rgba(229, 121, 109, 0.12); }
-.btn-lg { height: 38px; padding: 0 16px; border-radius: 999px; font-size: 14px; }
+.btn-ghost:disabled { color: var(--text-3); opacity: 0.7; }
+/* danger: red label, tinted on hover */
+.btn-danger { color: var(--danger); border-color: rgba(229, 121, 109, 0.28); background: rgba(229, 121, 109, 0.06); }
+.btn-danger:disabled { color: rgba(229, 121, 109, 0.5); }
+@media (hover: hover) and (pointer: fine) {
+  .btn-primary:hover:not(:disabled) { background: #ffffff; }
+  .btn-subtle:hover:not(:disabled) { background: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.14); }
+  .btn-ghost:hover:not(:disabled) { background: rgba(255, 255, 255, 0.06); color: var(--text); }
+  .btn-danger:hover:not(:disabled) { background: rgba(229, 121, 109, 0.14); }
+}
+.btn-sm { height: 30px; padding: 0 12px; font-size: 13px; }
+.btn-lg { height: 44px; padding: 0 20px; font-size: 15px; }
 .btn-block { width: 100%; }
+/* loading: a spinner before the label; focus stays (aria-busy, not disabled) */
+.btn[aria-busy='true'] { cursor: progress; }
+.btn[aria-busy='true']::before { content: ''; width: 14px; height: 14px; border-radius: 50%; border: 1.75px solid currentColor; border-right-color: transparent; animation: spin 700ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .btn:active:not(:disabled) { transform: none; } }
 
 .icon-btn {
   display: inline-grid;
@@ -192,39 +213,47 @@ kbd {
 
 /* --- Form controls ---------------------------------------------------------- */
 
-.field { display: grid; gap: 6px; }
-.field-label { font-size: 12px; color: var(--text-2); }
-.field-hint { font-size: 12px; color: var(--text-3); }
-.field-error { font-size: 12px; color: var(--danger); }
+/* Fields (after uiarc's Input): label above, the field, then help or error
+   copy that opens in place. */
+.field { display: grid; gap: 7px; min-width: 0; }
+.field-label { font-size: 13px; font-weight: 500; color: var(--text); }
+.field-hint { font-size: 12.5px; color: var(--text-3); }
+.field-error { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--danger); }
+.field-error:not([hidden]) { animation: field-msg-in 240ms cubic-bezier(0.22, 1, 0.36, 1); }
+@keyframes field-msg-in { from { opacity: 0; transform: translateY(-3px); filter: blur(2px); } }
 
 .input,
 .select,
 .textarea {
   width: 100%;
-  min-height: 34px;
-  padding: 7px 10px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.035);
+  min-width: 0;
+  min-height: 42px;
+  padding: 9px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
   color: var(--text);
-  font-size: 13px;
-  transition: border-color var(--fast), background var(--fast);
+  font-size: 14px;
+  transition: border-color var(--fast), background var(--fast), box-shadow var(--fast);
 }
 .input::placeholder,
 .textarea::placeholder { color: var(--text-3); }
-.input:hover,
-.select:hover,
-.textarea:hover { border-color: var(--border-strong); }
+@media (hover: hover) and (pointer: fine) {
+  .input:hover,
+  .select:hover,
+  .textarea:hover { border-color: rgba(255, 255, 255, 0.16); }
+}
 .input:focus,
 .select:focus,
-.textarea:focus { outline: none; border-color: rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.05); }
+.textarea:focus { outline: none; border-color: rgba(255, 255, 255, 0.34); background: rgba(255, 255, 255, 0.05); box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.07); }
+.input[aria-invalid='true'] { border-color: rgba(229, 121, 109, 0.6); }
 .textarea { resize: vertical; min-height: 76px; line-height: 1.5; }
 .select {
   appearance: none;
-  padding-right: 28px;
+  padding-right: 34px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 16 16' fill='none' stroke='%23a1a1aa' stroke-width='1.43' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.75 5.875 L8 10.125 L12.25 5.875'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 8px center;
+  background-position: right 12px center;
 }
 .select option { background: var(--surface-2); color: var(--text); }
 

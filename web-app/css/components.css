@@ -403,8 +403,7 @@
 @keyframes bulkbar-in { from { opacity: 0; transform: translate(-50%, 12px); } }
 .bulkbar-count { margin-right: 6px; font-size: 14px; color: var(--text-2); font-variant-numeric: tabular-nums; }
 .bulkbar-count strong { font-weight: 600; color: var(--text); }
-.bulkbar-close { width: 40px; height: 40px; border-radius: 50%; color: var(--text-3); }
-.bulkbar-close:hover { color: var(--text); background: rgba(255, 255, 255, 0.08); }
+.dialog-close.bulkbar-close { width: 40px; height: 40px; margin: 0; } /* round outlined close: .dialog-close */
 
 /* --- Expanding button group (button-group.js) ---------------------------------------
    Icon buttons in a pill. The expanded one shows its label; its width is set
@@ -749,7 +748,7 @@ button.chip:hover, a.chip:hover { background: var(--surface-hover); color: var(-
   .bulkbar-count-word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .ebg { --ebg-h: 36px; --ebg-icon: 16px; --ebg-start: 10px; --ebg-gap: 6px; --ebg-end: 13px; }
   .ebg-label { font-size: 14px; }
-  .bulkbar-close { width: 36px; height: 36px; }
+  .dialog-close.bulkbar-close { width: 36px; height: 36px; }
   .dock { bottom: max(12px, env(safe-area-inset-bottom)); width: calc(100% - 20px); }
   .mtabs { margin: 0 8px; padding: 0 6px 6px; border-radius: 24px; }
   .mtabs-rail { margin: 0 20px; height: 58px; }
@@ -874,3 +873,193 @@ button.chip:hover, a.chip:hover { background: var(--surface-hover); color: var(-
 /* after the last step: the card fades and its space closes */
 .home-onboarding.is-leaving { overflow: hidden; margin-top: 0; margin-bottom: 0; opacity: 0; }
 .settings > .ocl { max-width: none; }
+
+/* --- Segmented tabs (ui/segmented.js) ------------------------------------------------
+   A rounded track with a thumb that glides to the selected option; sized 30%
+   up from the plain tabs. Optional count badges sit beside each label. */
+/* a dark, recessed track so the raised thumb (the chosen option) stands out */
+.seg { position: relative; display: inline-flex; align-items: center; gap: 2px; padding: 4px; border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 999px; background: rgba(0, 0, 0, 0.45); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4); }
+.seg-thumb { position: absolute; top: 4px; bottom: 4px; left: 0; width: 0; border-radius: 999px; background: #2e2e2e; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 1px 3px rgba(0, 0, 0, 0.45); opacity: 0; transition: transform 380ms cubic-bezier(0.32, 0.72, 0, 1), width 380ms cubic-bezier(0.32, 0.72, 0, 1); }
+.seg.is-placed .seg-thumb { opacity: 1; }
+.seg-option { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 9px; height: 40px; padding: 0 18px; border-radius: 999px; color: var(--text-2); font-size: 17px; font-weight: 500; letter-spacing: -0.01em; white-space: nowrap; transition: color 200ms ease; }
+.seg-option[aria-current='page'],
+.seg-option[aria-checked='true'] { color: var(--text); }
+/* before the thumb is placed (or without script), the active option carries its own fill */
+.seg:not(.is-placed) .seg-option[aria-current='page'],
+.seg:not(.is-placed) .seg-option[aria-checked='true'] { background: #2e2e2e; }
+.seg-option:focus-visible { outline: 2px solid rgba(242, 242, 242, 0.7); outline-offset: 1px; }
+@media (hover: hover) and (pointer: fine) { .seg-option:not([aria-current='page']):hover { color: var(--text); } }
+.seg-badge { min-width: 24px; padding: 2px 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.07); color: var(--text-3); font-size: 13px; font-weight: 500; text-align: center; font-variant-numeric: tabular-nums; transition: background 200ms ease, color 200ms ease; }
+.seg-option[aria-current='page'] .seg-badge { background: rgba(255, 255, 255, 0.12); color: var(--text); }
+@media (max-width: 767px) { .seg-option { height: 36px; padding: 0 14px; font-size: 15.5px; } }
+@media (prefers-reduced-motion: reduce) { .seg-thumb { transition: none; } }
+
+/* --- Password strength (ui/password-strength.js) -------------------------------------- */
+.pws { --pws-tone: var(--text-3); display: grid; gap: 10px; min-width: 0; }
+.pws[data-level='1'] { --pws-tone: #e5796d; }
+.pws[data-level='2'] { --pws-tone: #e8b25c; }
+.pws[data-level='3'] { --pws-tone: #a3d977; }
+.pws[data-level='4'] { --pws-tone: #4ade80; }
+.pws-shell { position: relative; }
+.pws-input { padding-right: 46px; font-size: 15px; }
+.pws.is-revealed .pws-input { font-variant-ligatures: none; letter-spacing: 0.02em; }
+.pws-reveal { position: absolute; top: 50%; right: 6px; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; color: var(--text-3); transform: translateY(-50%); transition: color var(--fast), background var(--fast); }
+.pws-reveal:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
+.pws-reveal:focus-visible { outline: 2px solid rgba(242, 242, 242, 0.7); outline-offset: 1px; }
+/* the slash draws across the eye (and cuts the outline under it) when shown */
+.pws-slash { stroke-dasharray: 1; stroke-dashoffset: 1; opacity: 0; transition: stroke-dashoffset 280ms cubic-bezier(0.4, 0, 0.2, 1), opacity 80ms; }
+.pws.is-revealed .pws-slash { stroke-dashoffset: 0; opacity: 1; }
+
+.pws-meter-row { display: flex; align-items: center; gap: 12px; }
+.pws-meter { display: grid; flex: 1; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.pws-seg { height: 4px; overflow: hidden; border-radius: 999px; background: rgba(255, 255, 255, 0.08); }
+.pws-fill { display: block; width: 100%; height: 100%; border-radius: inherit; background: var(--pws-tone); transform: translateX(-101%); transition: transform 380ms cubic-bezier(0.32, 0.72, 0, 1), background 300ms ease; }
+.pws-seg.is-on .pws-fill { transform: none; }
+.pws-word { position: relative; display: grid; flex: none; min-width: 70px; height: 18px; overflow: hidden; color: var(--pws-tone); font-size: 13px; font-weight: 500; text-align: right; transition: color 300ms ease; }
+.pws-word-text { grid-area: 1 / 1; }
+.pws-word-text.is-entering.up { animation: pws-in-up 260ms cubic-bezier(0.22, 1, 0.36, 1); }
+.pws-word-text.is-entering.down { animation: pws-in-down 260ms cubic-bezier(0.22, 1, 0.36, 1); }
+.pws-word-text.is-leaving { animation: pws-out 160ms ease forwards; }
+.pws-word-text.is-leaving.up { --to: -0.5em; }
+.pws-word-text.is-leaving.down { --to: 0.5em; }
+@keyframes pws-in-up { from { opacity: 0; transform: translateY(0.5em); filter: blur(2px); } }
+@keyframes pws-in-down { from { opacity: 0; transform: translateY(-0.5em); filter: blur(2px); } }
+@keyframes pws-out { to { opacity: 0; transform: translateY(var(--to)); filter: blur(1px); } }
+
+.pws-rules { display: grid; gap: 7px; margin: 2px 0 0; padding: 0; list-style: none; }
+.pws-rule { display: flex; align-items: center; gap: 10px; color: var(--text-2); font-size: 13.5px; transition: color 200ms ease; }
+.pws-rule[data-met] { color: var(--text); }
+.pws-rule-label { flex: 1; min-width: 0; }
+.pws-remaining { flex: none; color: var(--text-3); font-size: 12.5px; font-variant-numeric: tabular-nums; }
+.pws-mark { position: relative; display: grid; flex: none; place-items: center; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid rgba(255, 255, 255, 0.2); transition: border-color 200ms ease var(--delay, 0ms); }
+.pws-mark-fill { position: absolute; inset: -1.5px; border-radius: 50%; background: #4ade80; opacity: 0; transform: scale(0.7); transition: transform 300ms cubic-bezier(0.3, 1.4, 0.5, 1) var(--delay, 0ms), opacity 120ms ease var(--delay, 0ms); }
+.pws-mark svg { position: relative; width: 12px; height: 12px; color: #0b2a16; }
+.pws-tick { stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 140ms ease; }
+.pws-rule[data-met] .pws-mark { border-color: transparent; }
+.pws-rule[data-met] .pws-mark-fill { opacity: 1; transform: none; }
+.pws-rule[data-met] .pws-tick { stroke-dashoffset: 0; transition: stroke-dashoffset 260ms cubic-bezier(0.22, 1, 0.36, 1) calc(var(--delay, 0ms) + 60ms); }
+
+@media (prefers-reduced-motion: reduce) {
+  .pws *, .pws *::before { transition-duration: 1ms !important; animation-duration: 1ms !important; transition-delay: 0s !important; }
+}
+
+/* --- Action swap (ui/action-swap.js) --------------------------------------------------- */
+.aswap-wrap { display: inline-flex; }
+.aswap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: width 380ms cubic-bezier(0.32, 0.72, 0, 1), background 260ms ease, border-color 260ms ease, color 260ms ease, transform 160ms cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+.aswap:active:not([aria-busy]) { transform: scale(0.97); }
+.aswap:focus-visible { outline: 2px solid rgba(242, 242, 242, 0.7); outline-offset: 2px; }
+.aswap[aria-busy] { cursor: progress; }
+.aswap[data-tone='accent'] { border-color: transparent; background: var(--text); color: #111; }
+.aswap[data-tone='success'] { border-color: rgba(74, 222, 128, 0.28); background: rgba(74, 222, 128, 0.1); }
+.aswap[data-tone='success'] .aswap-icon { color: #4ade80; }
+.aswap[data-tone='warning'] { border-color: rgba(232, 178, 92, 0.3); background: rgba(232, 178, 92, 0.1); color: #f1c98a; }
+.aswap[data-tone='danger'] { border-color: rgba(229, 121, 109, 0.32); background: rgba(229, 121, 109, 0.1); color: var(--danger); }
+@media (hover: hover) and (pointer: fine) {
+  .aswap[data-tone='neutral']:hover:not([aria-busy]) { background: rgba(255, 255, 255, 0.07); }
+  .aswap[data-tone='accent']:hover:not([aria-busy]) { background: #fff; }
+  .aswap[data-tone='success']:hover:not([aria-busy]) { background: rgba(74, 222, 128, 0.16); }
+}
+.aswap-icon { display: grid; flex: none; place-items: center; width: 16px; height: 16px; }
+.aswap-icon[hidden] { display: none; }
+.aswap-label { display: grid; }
+.aswap-word { grid-area: 1 / 1; }
+.aswap-word.is-entering { animation: aswap-in 280ms cubic-bezier(0.22, 1, 0.36, 1); }
+.aswap-word.is-leaving { animation: aswap-out 160ms ease forwards; }
+@keyframes aswap-in { from { opacity: 0; transform: translateY(0.45em); filter: blur(3px); } }
+@keyframes aswap-out { to { opacity: 0; transform: translateY(-0.45em); filter: blur(2px); } }
+.aswap-spinner { width: 14px; height: 14px; border-radius: 50%; border: 1.75px solid currentColor; border-right-color: transparent; animation: spin 700ms linear infinite; }
+.aswap-check svg { display: block; }
+.aswap-wipe { stroke-dasharray: 1; stroke-dashoffset: 1; animation: aswap-wipe 320ms cubic-bezier(0.22, 1, 0.36, 1) 80ms forwards; }
+@keyframes aswap-wipe { to { stroke-dashoffset: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .aswap, .aswap * { transition-duration: 1ms !important; animation-duration: 1ms !important; animation-delay: 0s !important; }
+  .aswap-spinner { animation: none; border-right-color: currentColor; opacity: 0.6; }
+}
+
+/* --- Inline edit (ui/inline-edit.js) ------------------------------------------------------
+   Resting text flows like the page's own (full width, natural wrapping) with a
+   pencil after it. Editing puts a field the width of the text block in its
+   place, padded out by negative margins so the words stay exactly where they
+   were; save and cancel sit just past its right edge. */
+.ie { position: relative; display: block; max-width: 100%; }
+/* plain wrapping in both states, so text and field break on the same words */
+.ie, .ie-field { text-wrap: wrap; }
+.ie.is-section { display: inline-block; vertical-align: top; }
+.ie-display { display: inline; padding: 1px 6px; margin: 0 -6px; border-radius: 10px; color: inherit; font: inherit; letter-spacing: inherit; line-height: inherit; text-align: left; cursor: text; -webkit-box-decoration-break: clone; box-decoration-break: clone; transition: background var(--fast); }
+.ie-display[hidden] { display: none; }
+/* editing: the text keeps its place (so the block keeps its size) but can't be seen */
+.ie.is-editing .ie-display { visibility: hidden; }
+.ie-text { overflow-wrap: break-word; }
+.ie-text.is-empty { color: var(--text-3); }
+.ie-pencil { display: inline-grid; place-items: center; margin-left: 10px; vertical-align: 0.1em; color: var(--text-3); opacity: 0; transition: opacity var(--fast); }
+.ie-display:focus-visible { outline: 2px solid rgba(242, 242, 242, 0.7); outline-offset: 2px; }
+.ie-display:focus-visible .ie-pencil { opacity: 1; }
+@media (hover: hover) and (pointer: fine) {
+  .ie-display:hover { background: rgba(255, 255, 255, 0.04); }
+  .ie-display:hover .ie-pencil { opacity: 1; }
+}
+@media (hover: none) { .ie-pencil { opacity: 0.6; } }
+
+.ie-editor { position: absolute; top: 0; left: 0; right: 0; display: block; }
+.ie-editor[hidden],
+.ie:not(.is-editing) .ie-editor { display: none; }
+.ie.is-section .ie-editor { position: relative; display: inline-flex; align-items: center; }
+.ie-field {
+  display: block;
+  width: calc(100% + 20px);
+  max-width: none;
+  margin: -3.5px -10px;
+  padding: 2px 8.5px;
+  border: 1.5px solid rgba(255, 255, 255, 0.7);
+  border-radius: 12px;
+  /* solid, the page's own colour: nothing underneath ever shows through */
+  background: var(--bg-main);
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  line-height: inherit;
+  outline: none;
+  animation: ie-open 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+textarea.ie-field { resize: none; overflow: hidden; }
+.ie.is-invalid .ie-field { border-color: rgba(229, 121, 109, 0.8); }
+@keyframes ie-open { from { border-color: rgba(255, 255, 255, 0); } }
+/* save / cancel just past the field's right edge, so the text doesn't move */
+.ie-actions { position: absolute; top: -2px; left: calc(100% + 22px); display: flex; gap: 6px; }
+.ie.is-multiline .ie-actions { flex-direction: column; }
+.ie-btn { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.12); background: rgba(255, 255, 255, 0.05); color: var(--text-2); font-family: var(--font-sans); transition: background var(--fast), color var(--fast), transform 140ms cubic-bezier(0.3, 1.4, 0.5, 1); }
+.ie-btn:hover { color: var(--text); background: rgba(255, 255, 255, 0.1); }
+.ie-btn.is-save { border-color: transparent; background: var(--text); color: #111; }
+.ie-btn.is-save:hover { background: #fff; }
+.ie-btn:active { transform: scale(0.94); }
+.ie-btn:focus-visible { outline: 2px solid rgba(242, 242, 242, 0.7); outline-offset: 2px; }
+/* the message only shows for a problem; "saved" is for screen readers */
+.ie-msg { position: absolute; top: 100%; left: 0; margin-top: 8px; color: var(--danger); font-family: var(--font-sans); font-size: 13px; font-weight: 400; letter-spacing: 0; line-height: 1.3; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 160ms ease; }
+.ie.is-invalid .ie-msg { opacity: 1; }
+/* a folder's name, in the small section title: a one-line field, buttons inline */
+.ie.is-section .ie-display { display: inline-block; margin: -3px -6px; padding: 3px 6px; border-radius: 8px; }
+.ie.is-section .ie-field { width: auto; margin: -3px -7px; padding: 2px 6px; border-radius: 8px; field-sizing: content; }
+.ie.is-section .ie-actions { position: static; margin-left: 14px; gap: 4px; }
+.ie.is-section .ie-btn { width: 26px; height: 26px; }
+/* phones: no room past the edge, so the buttons sit under the field */
+@media (max-width: 767px) {
+  .ie:not(.is-section) .ie-actions { top: calc(100% + 10px); right: 0; left: auto; flex-direction: row; }
+  .ie.is-editing:not(.is-section) { margin-bottom: 48px; }
+}
+@media (prefers-reduced-motion: reduce) { .ie-field { animation: none; } }
