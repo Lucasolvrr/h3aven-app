@@ -1,38 +1,81 @@
+/* Same palette and type as the web app (web-app/css/tokens.css). */
+@font-face { font-family: 'Geist'; src: url('fonts/Geist-Variable.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: 'Geist Serif'; src: url('fonts/GeistSerifVF.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
+
+:root {
+  --bg: #0f0f0f;
+  --surface: #181818;
+  --surface-2: #1e1e1e;
+  --border: rgba(255, 255, 255, 0.08);
+  --text: #f2f2f2;
+  --text-2: #a1a1aa;
+  --text-3: #84848d;
+  --danger: #e5796d;
+  --ok: #4ade80;
+}
+
+* { box-sizing: border-box; }
 body {
-  width: 300px;
+  width: 320px;
   margin: 0;
-  padding: 16px;
-  font-family: system-ui, sans-serif;
-  font-size: 14px;
-  color: #1E241F;
-  background: #F5F6F3;
+  padding: 16px 16px 14px;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.45 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
-
-h1 { font-size: 15px; margin: 0 0 12px; }
 .hidden { display: none !important; }
-.muted { color: #6B7268; font-size: 12px; }
 
+.head { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; }
+.logo { width: 22px; height: 22px; border-radius: 6px; }
+.brand { font-weight: 600; letter-spacing: -0.015em; }
+
+.title { margin: 2px 0 6px; font: 400 22px/1.15 'Geist Serif', Georgia, serif; letter-spacing: -0.01em; }
+.text { margin: 0 0 14px; color: var(--text-2); font-size: 13px; }
+.text.is-error { color: var(--danger); }
+
+form { display: grid; gap: 10px; }
+.field { display: grid; gap: 5px; }
+.label { font-size: 12px; font-weight: 500; color: var(--text-2); }
 input {
-  display: block;
   width: 100%;
-  padding: 8px 10px;
-  margin-bottom: 8px;
-  border: 1px solid #DADCD5;
-  border-radius: 6px;
-  font-family: inherit;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  font: inherit;
   font-size: 13px;
-  box-sizing: border-box;
+  outline: none;
+  transition: border-color 120ms;
 }
+input:focus { border-color: rgba(255, 255, 255, 0.2); }
+input::placeholder { color: var(--text-3); }
 
-button {
+.btn {
   width: 100%;
-  padding: 9px;
-  border: none;
-  border-radius: 6px;
-  background: #1F6F63;
-  color: #F5F6F3;
+  height: 40px;
+  border: 0;
+  border-radius: 999px;
+  font: inherit;
   font-weight: 500;
-  font-size: 13px;
   cursor: pointer;
+  transition: background 120ms, opacity 120ms, transform 120ms;
 }
-button:hover { opacity: 0.9; }
+.btn:active { transform: scale(0.98); }
+.btn:disabled { opacity: 0.6; cursor: default; }
+.btn-primary { background: var(--text); color: #111; }
+.btn-primary:hover:not(:disabled) { background: #e2e2e2; }
+.btn:focus-visible,
+input:focus-visible,
+.link:focus-visible { outline: 2px solid rgba(242, 242, 242, 0.7); outline-offset: 2px; }
+
+.status { min-height: 18px; margin: 10px 0 0; font-size: 12.5px; color: var(--text-2); text-align: center; }
+.status.is-error { color: var(--danger); }
+.status.is-ok { color: var(--ok); }
+
+.foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.account { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-3); font-size: 12px; }
+.link { flex: none; padding: 0; border: 0; background: none; color: var(--text-2); font: inherit; font-size: 12px; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.link:hover { color: var(--text); }

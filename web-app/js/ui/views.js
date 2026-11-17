@@ -18,6 +18,7 @@ import { heroField } from './ascii.js';
 import { morphingTabs, tabAddButton, forgetTabs } from './tabs.js';
 import { importButton, previewStatus } from './import.js';
 import { previews } from '../services/importer.js';
+import { extension } from '../services/extension.js';
 import { selection } from './selection.js';
 import { openMenu, toast, attempt } from './overlay.js';
 import { PASSWORD_MIN, hasPassword } from './auth.js';
@@ -661,7 +662,160 @@ function searchView(route) {
   };
 }
 
+// --- connect the extension ----------------------------------------------------------------------
+// Where the extension's "Connect" button lands (#/connect). Signed in, one
+// click hands the extension a session of its own (see services/extension.js);
+// no token to copy.
+
+const connectFlow = { phase: 'idle', status: null, error: '' };
+let connectHost = null; // the card currently on screen (views are rebuilt on every store change)
+
+function connectView(ctx) {
+  connectHost = h('div', { class: 'connect' });
+  const cloud = state.mode === 'cloud';
+  const email = state.user?.email || '';
+
+  const art = (icon) =>
+    h(
+      'div',
+      { class: 'folder empty-art', 'aria-hidden': 'true', style: colorVars(FOLDER_COLORS[connectFlow.phase === 'done' ? 4 : 0]) },
+      h('div', { class: 'folder-back' }),
+      h('div', { class: 'folder-paper' }),
+      h('div', { class: 'folder-paper' }),
+      h('div', { class: 'folder-front' }, iconEl(icon, 22))
+    );
+  const button = (label, onClick, kind = 'btn-primary', icon) => h('button', { type: 'button', class: `btn ${kind} btn-lg`, onClick }, icon && iconEl(icon, 15), label);
+
+  const check = async () => {
+    connectFlow.phase = 'checking';
+    paint();
+    connectFlow.status = await extension.status();
+    connectFlow.phase = connectFlow.status ? 'ready' : 'missing';
+    paint();
+  };
+
+  const connect = async () => {
+    connectFlow.phase = 'connecting';
+    connectFlow.error = '';
+    paint();
+    try {
+      const token = await ctx.getSyncToken();
+      connectFlow.status = await extension.connect(token, email);
+      connectFlow.phase = 'done';
+    } catch (error) {
+      connectFlow.error = error.message;
+      connectFlow.phase = 'ready';
+    }
+    paint();
+  };
+
+  function paint() {
+    const host = connectHost;
+    if (!host) return;
+    const { phase, status, error } = connectFlow;
+    let parts;
+    if (phase === 'idle' || phase === 'checking') {
+      parts = [art('link'), h('p', { class: 'empty-title' }, 'Looking for the extension…')];
+    } else if (phase === 'missing') {
+      parts = [
+        art('link'),
+        h('p', { class: 'empty-title' }, 'Add the extension first'),
+        h('p', { class: 'empty-text' }, 'This browser doesn’t have the h3aven extension yet. Load it once, then come back to this tab:'),
+        h(
+          'ol',
+          { class: 'connect-steps' },
+          h('li', null, 'Open ', h('code', null, 'chrome://extensions'), ' and turn on Developer mode.'),
+          h('li', null, 'Click Load unpacked and choose the ', h('code', null, 'chrome-extension'), ' folder of h3aven.'),
+          h('li', null, 'Press Try again below.')
+        ),
+        // A freshly installed extension only reaches tabs loaded after it, so reload.
+        button('Try again', () => location.reload(), 'btn-subtle'),
+      ];
+    } else if (!cloud) {
+      parts = [
+        art('log-in'),
+        h('p', { class: 'empty-title' }, 'Sign in to connect'),
+        h('p', { class: 'empty-text' }, 'The extension saves into your account. Sign in, and it connects with one click.'),
+        button('Sign in', () => ctx.signIn(), 'btn-primary', 'log-in'),
+      ];
+    } else if (phase === 'done') {
+      parts = [
+        art('check'),
+        h('p', { class: 'empty-title' }, 'Extension connected'),
+        h('p', { class: 'empty-text' }, 'Click the h3aven icon in the toolbar to save the page you’re on. You can close this tab.'),
+        button('Go to your library', () => (location.hash = '#/'), 'btn-subtle'),
+      ];
+    } else {
+      const same = status?.connected && status.email && status.email === email;
+      parts = [
+        art('link'),
+        h('p', { class: 'empty-title' }, same ? 'Already connected' : 'Connect the extension'),
+        h('p', { class: 'empty-text' }, same ? 'Pages you save from the toolbar already go to ' : 'Save the page you’re on, from any tab, straight into ', h('strong', null, email), same ? '.' : '’s library.'),
+        status?.connected && !same && status.email && h('p', { class: 'connect-note' }, `It is connected to ${status.email} now; this replaces it.`),
+        error && h('p', { class: 'connect-error', role: 'alert' }, error),
+        h(
+          'div',
+          { class: 'connect-actions' },
+          same
+            ? [button('Done', () => (location.hash = '#/'), 'btn-primary'), button('Reconnect', connect, 'btn-subtle')]
+            : button(phase === 'connecting' ? 'Connecting…' : 'Connect', connect, 'btn-primary', 'link')
+        ),
+      ];
+    }
+    host.replaceChildren(h('div', { class: 'empty connect-card' }, parts));
+    if (phase === 'connecting') host.querySelectorAll('button').forEach((b) => (b.disabled = true));
+  }
+
+  if (connectFlow.phase === 'idle') check();
+  else paint();
+  return { title: 'Connect the extension', crumbs: [{ label: 'Connect the extension' }], node: connectHost };
+}
+
 // --- settings -------------------------------------------------------------------------------------
+
+/** Settings → Capture: whether the extension is here and connected, and the one button that moves it forward. */
+function extensionRow(row, ctx, cloud) {
+  const desc = 'Save the page you’re on from the browser toolbar.';
+  const controls = h('div', { class: 'section-actions' });
+  const el = row('Chrome extension', desc, controls);
+  const text = el.querySelector('.set-row-desc');
+  const go = (label, kind = 'btn-subtle') => h('button', { type: 'button', class: `btn ${kind}`, onClick: () => (location.hash = '#/connect') }, label);
+  // The old way, kept for the odd case where the page can't reach the extension.
+  const copyToken = h(
+    'button',
+    {
+      type: 'button',
+      class: 'btn btn-ghost',
+      title: 'Copy a token to paste in the extension’s options instead',
+      onClick: async (event) => {
+        const button = event.currentTarget;
+        button.disabled = true;
+        try {
+          const token = await ctx.getSyncToken();
+          toast((await copyText(token)) ? 'Token copied. Paste it in the extension’s options.' : 'Could not copy the token', { type: 'info' });
+        } catch (error) {
+          toast(error.message, { type: 'error' });
+        } finally {
+          button.disabled = false;
+        }
+      },
+    },
+    'Copy token'
+  );
+  extension.status().then((status) => {
+    if (!status) {
+      text.textContent = `${desc} Not installed in this browser yet.`;
+      controls.replaceChildren(go('Set up'));
+    } else if (status.connected) {
+      text.textContent = status.email ? `Connected to ${status.email}.` : 'Connected.';
+      controls.replaceChildren(...[cloud && copyToken, go('Reconnect')].filter(Boolean));
+    } else {
+      text.textContent = `${desc} Installed, not connected yet.`;
+      controls.replaceChildren(...[cloud && copyToken, go('Connect', 'btn-primary')].filter(Boolean));
+    }
+  });
+  return el;
+}
 
 function settingsView(ctx) {
   const row = (title, description, control) =>
@@ -732,32 +886,7 @@ function settingsView(ctx) {
 
   const capture = group(
     'Capture',
-    row(
-      'Chrome extension',
-      cloud ? 'Creates a separate sign-in for the extension, so it never signs this app out. Paste it into the extension’s options page.' : 'Sign in to connect the extension to your account.',
-      h(
-        'button',
-        {
-          type: 'button',
-          class: 'btn btn-subtle',
-          disabled: !cloud,
-          onClick: async (event) => {
-            const button = event.currentTarget;
-            button.disabled = true;
-            try {
-              const token = await ctx.getSyncToken();
-              toast((await copyText(token)) ? 'Sync token copied. Paste it in the extension’s options.' : 'Could not copy the token', { type: 'info' });
-            } catch (error) {
-              toast(error.message, { type: 'error' });
-            } finally {
-              button.disabled = false;
-            }
-          },
-        },
-        iconEl('copy', 15),
-        'Copy sync token'
-      )
-    )
+    extensionRow(row, ctx, cloud)
   );
 
   const importing = group(
@@ -841,6 +970,8 @@ export function renderView(route, ctx) {
       return searchView(route, ctx);
     case 'settings':
       return settingsView(ctx);
+    case 'connect':
+      return connectView(ctx);
     default:
       return homeView(ctx, route);
   }

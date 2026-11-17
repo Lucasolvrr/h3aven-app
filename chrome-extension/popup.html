@@ -1,24 +1,37 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
 
-<div id="not-configured" class="hidden">
-  <p>Extensão ainda não conectada à sua conta.</p>
-  <button id="open-options">Abrir opções</button>
-</div>
+<header class="head">
+  <img class="logo" src="icons/icon-48.png" alt="" />
+  <span class="brand">h3aven</span>
+</header>
 
-<div id="form-view" class="hidden">
-  <h1>Salvar link</h1>
-  <input type="text" id="title-input" placeholder="Título" />
-  <input type="url" id="url-input" placeholder="URL" />
-  <input type="text" id="tags-input" placeholder="tags separadas por vírgula" />
-  <button id="save-btn">Salvar</button>
-  <p id="status" class="muted"></p>
-</div>
+<!-- Not connected yet (or the connection expired) -->
+<section id="connect-view" class="hidden">
+  <h1 class="title">Save pages to h3aven</h1>
+  <p class="text" id="connect-text">Connect this extension to your h3aven account. It takes one click.</p>
+  <button type="button" class="btn btn-primary" id="connect-btn">Connect to h3aven</button>
+</section>
+
+<!-- Connected: save the current tab -->
+<section id="form-view" class="hidden">
+  <form id="save-form">
+    <label class="field"><span class="label">Title</span><input type="text" id="title-input" autocomplete="off" /></label>
+    <label class="field"><span class="label">Link</span><input type="url" id="url-input" autocomplete="off" /></label>
+    <label class="field"><span class="label">Tags</span><input type="text" id="tags-input" placeholder="design, inspiration" autocomplete="off" /></label>
+    <button type="submit" class="btn btn-primary" id="save-btn">Save</button>
+  </form>
+  <p id="status" class="status" role="status" aria-live="polite"></p>
+  <footer class="foot">
+    <span class="account" id="account"></span>
+    <button type="button" class="link" id="disconnect-btn">Disconnect</button>
+  </footer>
+</section>
 
 <script src="config.js"></script>
 <script src="popup.js"></script>

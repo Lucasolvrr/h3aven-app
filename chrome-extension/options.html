@@ -1,31 +1,47 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
+<title>h3aven extension</title>
+<link rel="stylesheet" href="popup.css" />
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 480px; margin: 40px auto; color: #1E241F; }
-  h1 { font-size: 18px; }
-  p { color: #6B7268; font-size: 14px; line-height: 1.6; }
+  body { width: auto; max-width: 440px; margin: 56px auto; padding: 0 20px; }
+  .title { font-size: 28px; }
+  .text { font-size: 14px; }
+  .btn { width: auto; padding: 0 20px; }
+  details { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--border); color: var(--text-2); font-size: 13px; }
+  summary { cursor: pointer; color: var(--text-2); }
+  summary:hover { color: var(--text); }
   textarea {
-    width: 100%; height: 70px; padding: 10px; border: 1px solid #DADCD5;
-    border-radius: 6px; font-family: monospace; font-size: 12px; box-sizing: border-box;
+    width: 100%; height: 76px; margin: 12px 0 10px; padding: 10px 12px; border: 1px solid transparent; border-radius: 10px;
+    background: rgba(255, 255, 255, 0.06); color: var(--text); font: 12px/1.4 ui-monospace, monospace; resize: vertical; outline: none;
   }
-  button {
-    margin-top: 10px; padding: 9px 16px; border: none; border-radius: 6px;
-    background: #1F6F63; color: #F5F6F3; font-weight: 500; cursor: pointer;
-  }
-  #status { font-size: 13px; margin-top: 8px; }
+  textarea:focus { border-color: rgba(255, 255, 255, 0.2); }
+  .btn-subtle { background: rgba(255, 255, 255, 0.08); color: var(--text); }
+  .btn-subtle:hover:not(:disabled) { background: rgba(255, 255, 255, 0.13); }
+  .status { text-align: left; }
 </style>
 </head>
 <body>
-  <h1>Conectar ao Link Saver</h1>
-  <p>
-    Abra o web app, faça login com o link mágico e copie o "token de sincronização"
-    que aparece no painel "Conectar a extensão do Chrome". Cole abaixo.
-  </p>
-  <textarea id="token-input" placeholder="Cole o token aqui"></textarea>
-  <button id="save-btn">Salvar</button>
-  <p id="status"></p>
+  <header class="head">
+    <img class="logo" src="icons/icon-48.png" alt="" />
+    <span class="brand">h3aven</span>
+  </header>
+
+  <h1 class="title">Connect the extension</h1>
+  <p class="text" id="state">Open h3aven, sign in, and press Connect. That’s all.</p>
+  <button type="button" class="btn btn-primary" id="connect-btn">Connect to h3aven</button>
+  <button type="button" class="btn btn-subtle hidden" id="disconnect-btn">Disconnect</button>
+
+  <details>
+    <summary>Paste a token instead</summary>
+    <p>In h3aven, open Settings → Chrome extension → Copy token, and paste it here.</p>
+    <textarea id="token-input" placeholder="Token" spellcheck="false"></textarea>
+    <button type="button" class="btn btn-subtle" id="save-btn">Save token</button>
+  </details>
+  <p class="status" id="status" role="status" aria-live="polite"></p>
+
+  <script src="config.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

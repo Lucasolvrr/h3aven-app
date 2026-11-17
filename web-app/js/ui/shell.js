@@ -39,6 +39,7 @@ export function parseRoute() {
   if (head === 'library') return { name: 'library', tab: a || '', key: `library:${a || ''}` };
   if (head === 'search') return { name: 'search', chips: parseChips([a, b, ...rest].filter(Boolean)), key: 'search' };
   if (head === 'settings') return { name: 'settings', key: 'settings' };
+  if (head === 'connect') return { name: 'connect', key: 'connect' };
   return { name: 'home', key: 'home' };
 }
 

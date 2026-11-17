@@ -1,4 +1,5 @@
-// Usa fetch puro contra a API REST do Supabase (sem bundlar supabase-js)
+// Popup: connect once (through the web app), then save the current tab.
+// Plain fetch against Supabase's REST API, so nothing has to be bundled.
 
 function detectSource(url) {
   try {
@@ -12,7 +13,7 @@ function detectSource(url) {
   }
 }
 
-// Classificação mais rica usada para buscar metadados/renderizar cards no web app.
+// The richer type the web app uses to fetch metadata and draw cards.
 function detectContentType(url) {
   try {
     const host = new URL(url).hostname.replace('www.', '');
@@ -32,17 +33,27 @@ function parseJwt(token) {
   return JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
 }
 
+/** The connection is gone for good (revoked, expired, used twice): reconnecting is the only fix. */
+class ExpiredError extends Error {}
+
 async function refreshAccessToken(refreshToken) {
-  const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
-    method: 'POST',
-    headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh_token: refreshToken }),
-  });
-  if (!res.ok) throw new Error('Falha ao renovar sessão. Cole o token novamente nas opções.');
+  let res;
+  try {
+    res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=refresh_token`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_ANON_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    });
+  } catch {
+    throw new Error('Could not reach h3aven. Check your connection.');
+  }
+  if (res.status === 400 || res.status === 401 || res.status === 403) throw new ExpiredError();
+  if (!res.ok) throw new Error('h3aven is not answering right now. Try again in a moment.');
   const data = await res.json();
-  // Supabase gira o refresh_token a cada uso — sempre salva o novo
+  // Supabase rotates the refresh token on every use: always keep the new one.
   await chrome.storage.local.set({ refresh_token: data.refresh_token });
-  return { accessToken: data.access_token, userId: parseJwt(data.access_token).sub };
+  const claims = parseJwt(data.access_token);
+  return { accessToken: data.access_token, userId: claims.sub, email: claims.email || data.user?.email || null };
 }
 
 const NEEDS_ENRICHMENT = new Set(['link', 'social', 'youtube', 'music', 'tweet', 'instagram']);
@@ -68,18 +79,15 @@ async function saveLink({ accessToken, userId, url, title, tagNames }) {
       fetch_status: needsEnrichment ? 'pending' : 'ready',
     }),
   });
-  if (!linkRes.ok) throw new Error('Erro ao salvar o link.');
+  if (!linkRes.ok) throw new Error('Could not save the link.');
   const [linkRow] = await linkRes.json();
 
   for (const name of tagNames) {
-    const tagRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/tags?on_conflict=user_id,name`,
-      {
-        method: 'POST',
-        headers: { ...headers, Prefer: 'resolution=merge-duplicates,return=representation' },
-        body: JSON.stringify({ user_id: userId, name }),
-      }
-    );
+    const tagRes = await fetch(`${SUPABASE_URL}/rest/v1/tags?on_conflict=user_id,name`, {
+      method: 'POST',
+      headers: { ...headers, Prefer: 'resolution=merge-duplicates,return=representation' },
+      body: JSON.stringify({ user_id: userId, name }),
+    });
     if (!tagRes.ok) continue;
     const [tagRow] = await tagRes.json();
 
@@ -98,57 +106,101 @@ async function saveLink({ accessToken, userId, url, title, tagNames }) {
         body: JSON.stringify({ action: 'enrich', linkId: linkRow.id, url, contentType }),
       });
     } catch (err) {
-      // Best-effort: a linha já foi salva, só o enriquecimento visual falhou.
+      // Best effort: the row is saved; only the preview image is missing.
       console.error(err);
     }
   }
 }
 
-async function main() {
-  const notConfigured = document.getElementById('not-configured');
-  const formView = document.getElementById('form-view');
-  const statusEl = document.getElementById('status');
+// --- views ------------------------------------------------------------------------------
 
-  const { refresh_token } = await chrome.storage.local.get('refresh_token');
-  if (!refresh_token) {
-    notConfigured.classList.remove('hidden');
-    document.getElementById('open-options').addEventListener('click', () => {
-      chrome.runtime.openOptionsPage();
-    });
+const $ = (id) => document.getElementById(id);
+
+function showConnect(message) {
+  $('form-view').classList.add('hidden');
+  $('connect-view').classList.remove('hidden');
+  const text = $('connect-text');
+  text.textContent = message || 'Connect this extension to your h3aven account. It takes one click.';
+  text.classList.toggle('is-error', Boolean(message));
+  $('connect-btn').textContent = message ? 'Connect again' : 'Connect to h3aven';
+  $('connect-btn').focus();
+}
+
+function setStatus(text, kind = '') {
+  const status = $('status');
+  status.textContent = text;
+  status.className = `status${kind ? ` is-${kind}` : ''}`;
+}
+
+$('connect-btn').addEventListener('click', async () => {
+  // The app signs the person in (if needed) and hands this extension a session of its own.
+  await chrome.tabs.create({ url: `${APP_URL}#/connect` });
+  window.close();
+});
+
+$('disconnect-btn').addEventListener('click', async () => {
+  await chrome.storage.local.remove(['refresh_token', 'email']);
+  showConnect();
+});
+
+async function main() {
+  const { refresh_token: refreshToken, email } = await chrome.storage.local.get(['refresh_token', 'email']);
+  if (!refreshToken) {
+    showConnect();
     return;
   }
 
-  formView.classList.remove('hidden');
+  $('connect-view').classList.add('hidden');
+  $('form-view').classList.remove('hidden');
+  $('account').textContent = email ? `Saving to ${email}` : 'Connected';
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  document.getElementById('title-input').value = tab.title || '';
-  document.getElementById('url-input').value = tab.url || '';
-  document.getElementById('tags-input').value = detectSource(tab.url || '');
+  $('title-input').value = tab?.title || '';
+  $('url-input').value = tab?.url || '';
+  $('save-btn').focus();
 
-  let session;
-  try {
-    session = await refreshAccessToken(refresh_token);
-  } catch (err) {
-    statusEl.textContent = err.message;
-    return;
-  }
+  let session = null;
+  const ready = refreshAccessToken(refreshToken).then(
+    (value) => {
+      session = value;
+      if (value.email && value.email !== email) {
+        chrome.storage.local.set({ email: value.email });
+        $('account').textContent = `Saving to ${value.email}`;
+      }
+    },
+    async (error) => {
+      if (error instanceof ExpiredError) {
+        await chrome.storage.local.remove(['refresh_token', 'email']);
+        showConnect('This connection has expired. Connect again to keep saving.');
+      } else {
+        setStatus(error.message, 'error');
+      }
+    }
+  );
 
-  document.getElementById('save-btn').addEventListener('click', async () => {
-    statusEl.textContent = 'Salvando...';
-    const url = document.getElementById('url-input').value.trim();
-    const title = document.getElementById('title-input').value.trim();
-    const tagNames = document
-      .getElementById('tags-input')
+  $('save-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const button = $('save-btn');
+    button.disabled = true;
+    setStatus('Saving…');
+    await ready;
+    if (!session) {
+      button.disabled = false;
+      return;
+    }
+    const url = $('url-input').value.trim();
+    const title = $('title-input').value.trim();
+    const tagNames = $('tags-input')
       .value.split(',')
-      .map((t) => t.trim().replace(/^#/, ''))
+      .map((tag) => tag.trim().replace(/^#/, ''))
       .filter(Boolean);
-
     try {
       await saveLink({ ...session, url, title, tagNames });
-      statusEl.textContent = 'Salvo!';
-      setTimeout(() => window.close(), 700);
-    } catch (err) {
-      statusEl.textContent = err.message;
+      setStatus('Saved to h3aven', 'ok');
+      setTimeout(() => window.close(), 800);
+    } catch (error) {
+      setStatus(error.message, 'error');
+      button.disabled = false;
     }
   });
 }
