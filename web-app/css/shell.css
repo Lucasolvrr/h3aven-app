@@ -304,17 +304,59 @@
 
 /* --- Settings ------------------------------------------------------------------ */
 
-.settings { max-width: 660px; padding: 0 var(--gutter); display: grid; gap: 26px; }
-.set-group h2 { font-size: 13px; font-weight: 500; color: var(--text-2); margin-bottom: 8px; }
-.set-card { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); }
-.set-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; }
-.set-row + .set-row { border-top: 1px solid var(--border); }
-.set-row-text { min-width: 0; }
-.set-row-title { font-size: 13.5px; font-weight: 500; }
-.set-row-desc { margin-top: 2px; font-size: 12.5px; color: var(--text-3); }
-.set-form { display: flex; gap: 8px; flex: 0 1 320px; }
-.set-form-stack { display: grid; grid-template-columns: 1fr; }
-.set-form-stack .btn { justify-self: end; }
+/* Settings: sections with a title and a line on what they are for, then a
+   card of rows (label left, control right), as in a preferences pane. */
+.settings { max-width: 860px; padding: 0 var(--gutter) 40px; display: grid; gap: 40px; }
+.set-head { margin-bottom: 14px; }
+.set-head h2 { font-size: 16px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
+.set-head p { margin-top: 3px; font-size: 13.5px; color: var(--text-2); }
+.set-card { border: 1px solid var(--border); border-radius: 16px; background: var(--surface); overflow: hidden; }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 24px; min-height: 72px; padding: 16px 20px; }
+.set-card > * + * { border-top: 1px solid var(--border); }
+.set-row-text { min-width: 0; max-width: 440px; }
+.set-row-title { font-size: 15px; font-weight: 500; color: var(--text); letter-spacing: -0.005em; }
+.set-row-desc { margin-top: 3px; font-size: 13px; line-height: 1.45; color: var(--text-3); }
+.set-row-control { flex: none; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+
+/* Text fields with their icon inside */
+.set-field { position: relative; display: flex; align-items: center; width: 300px; }
+.set-field > .icon { position: absolute; left: 12px; color: var(--text-3); pointer-events: none; }
+.set-input {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px 0 36px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  outline: none;
+  transition: border-color var(--fast), background var(--fast);
+}
+.set-input::placeholder { color: var(--text-3); }
+.set-input:hover { border-color: var(--border-strong); }
+.set-input:focus { border-color: rgba(255, 255, 255, 0.28); background: rgba(255, 255, 255, 0.05); }
+.set-field:focus-within > .icon { color: var(--text-2); }
+.set-inline { display: flex; align-items: center; gap: 8px; }
+.set-inline-btn { height: 38px; border-radius: 10px; }
+
+/* Avatar: the Google photo when there is one, else initials */
+.set-avatar { display: grid; place-items: center; width: 44px; height: 44px; overflow: hidden; border-radius: 50%; background: #4a4a52; color: #fff; font-size: 15px; font-weight: 600; letter-spacing: 0.02em; }
+.set-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+/* Password: the fields open under the row */
+.set-expand { padding: 4px 20px 20px; border-top: 0 !important; }
+.set-expand[hidden] { display: none; }
+.set-expand-form { display: grid; justify-items: end; gap: 10px; animation: rise-in var(--medium) var(--ease); }
+.set-expand-actions { display: flex; gap: 8px; margin-top: 4px; }
+
+/* On/off switch */
+.switch { position: relative; flex: none; width: 42px; height: 24px; border-radius: 999px; background: #3f3f46; transition: background 200ms var(--ease); }
+.switch-knob { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #f2f2f2; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35); transition: transform 220ms cubic-bezier(0.32, 0.72, 0, 1); }
+.switch[aria-checked='true'] { background: #f2f2f2; }
+.switch[aria-checked='true'] .switch-knob { transform: translateX(18px); background: #141414; }
+.switch:focus-visible { outline: 2px solid rgba(242, 242, 242, 0.7); outline-offset: 2px; }
 .set-token { display: flex; align-items: center; gap: 6px; }
 .set-token code { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-mono); font-size: 12px; color: var(--text-2); }
 
@@ -440,6 +482,11 @@
   .hero-sub { font-size: 16px; }
   .section + .section { margin-top: 24px; }
 
-  .set-row { flex-direction: column; align-items: stretch; }
-  .set-form { flex: none; }
+  /* phones: fields and buttons go under their label; the avatar and switches stay beside it */
+  .set-row:not(:has(.switch, .set-avatar)) { flex-direction: column; align-items: stretch; gap: 12px; }
+  .set-row-control { justify-content: flex-start; flex-wrap: wrap; }
+  .set-field, .set-inline { width: 100%; }
+  .set-inline .set-field { flex: 1; }
+  .set-expand-form { justify-items: stretch; }
+  .set-expand-form .set-field { width: 100%; }
 }

@@ -245,6 +245,13 @@ export function sortBookmarks(list, mode = 'saved') {
   return [...list].sort((SORTS[mode] || SORTS.saved).compare);
 }
 
+/** After the account changed (name, email…): the new user object, and a redraw. */
+export function setUser(user) {
+  if (!user) return;
+  state.user = user;
+  emit();
+}
+
 export function displayName() {
   const meta = state.user?.user_metadata || {};
   const raw = meta.name || meta.full_name || (state.user?.email || '').split('@')[0].split(/[._-]/)[0];

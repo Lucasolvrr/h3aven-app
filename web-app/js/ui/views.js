@@ -818,112 +818,176 @@ function extensionRow(row, ctx, cloud) {
 }
 
 function settingsView(ctx) {
+  // A row: label (and a line of help) on the left, its control on the right.
   const row = (title, description, control) =>
-    h('div', { class: 'set-row' }, h('div', { class: 'set-row-text' }, h('div', { class: 'set-row-title' }, title), description && h('div', { class: 'set-row-desc' }, description)), control);
-  const group = (title, ...rows) => h('section', { class: 'set-group' }, h('h2', null, title), h('div', { class: 'set-card' }, rows));
-  const cloud = state.mode === 'cloud';
+    h(
+      'div',
+      { class: 'set-row' },
+      h('div', { class: 'set-row-text' }, h('div', { class: 'set-row-title' }, title), description && h('div', { class: 'set-row-desc' }, description)),
+      control && h('div', { class: 'set-row-control' }, control)
+    );
+  // A section: its title and what it is for, then one card of rows.
+  const group = (title, description, ...rows) =>
+    h('section', { class: 'set-group' }, h('header', { class: 'set-head' }, h('h2', null, title), description && h('p', null, description)), h('div', { class: 'set-card' }, rows));
+  // A text field with its icon inside, like the search bar.
+  const field = (icon, attrs) => {
+    const input = h('input', { class: 'set-input', spellcheck: 'false', ...attrs });
+    return { input, el: h('label', { class: 'set-field' }, iconEl(icon, 15), input) };
+  };
+  // An on/off switch.
+  const toggle = (label, on, onChange) =>
+    h('button', { type: 'button', class: 'switch', role: 'switch', 'aria-checked': String(on), 'aria-label': label, onClick: () => onChange(!on) }, h('span', { class: 'switch-knob' }));
 
-  const inlineForm = ({ type, value = '', placeholder, label, action, success }) => {
-    const input = h('input', { class: 'input', type, value, placeholder, required: true, minlength: type === 'password' ? '6' : null, autocomplete: type === 'password' ? 'new-password' : 'email', spellcheck: type === 'email' ? 'false' : null, 'aria-label': type === 'email' ? 'Email' : placeholder });
-    const button = h('button', { type: 'submit', class: 'btn btn-subtle' }, label);
-    const form = h('form', { class: 'set-form' }, input, button);
-    form.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      button.disabled = true;
-      if ((await attempt(() => action(input.value), success)) && type === 'password') input.value = '';
-      button.disabled = false;
-    });
-    return form;
+  const cloud = state.mode === 'cloud';
+  const user = state.user;
+  const meta = user?.user_metadata || {};
+
+  // --- profile ---
+
+  const avatar = () => {
+    const name = displayName() || user?.email || '?';
+    const initials = name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
+    const box = h('span', { class: 'set-avatar', 'aria-hidden': 'true' }, initials);
+    const photo = meta.avatar_url || meta.picture;
+    if (photo) {
+      const img = h('img', { src: photo, alt: '', referrerpolicy: 'no-referrer' });
+      img.addEventListener('load', () => box.replaceChildren(img));
+    }
+    return box;
   };
 
-  // Current password (when there is one), new, and confirm.
-  const passwordForm = () => {
-    const needsCurrent = hasPassword(state.user);
-    const input = (placeholder, autocomplete) => h('input', { class: 'input', type: 'password', placeholder, 'aria-label': placeholder, required: true, autocomplete, minlength: autocomplete === 'new-password' ? String(PASSWORD_MIN) : null });
-    const current = needsCurrent ? input('Current password', 'current-password') : null;
-    const next = input('New password', 'new-password');
-    const confirm = input('Confirm new password', 'new-password');
-    const button = h('button', { type: 'submit', class: 'btn btn-subtle' }, needsCurrent ? 'Update' : 'Set password');
-    const form = h('form', { class: 'set-form set-form-stack' }, current, next, confirm, button);
+  // Saved when it changes (Enter or leaving the field), no button needed.
+  const nameField = () => {
+    const current = meta.full_name || meta.name || '';
+    const { input, el } = field('user', { type: 'text', value: current, placeholder: 'Your name', 'aria-label': 'Full name', autocomplete: 'name', maxlength: '80' });
+    let saved = current;
+    const save = async () => {
+      const value = input.value.trim();
+      if (value === saved) return;
+      saved = value;
+      if (!(await attempt(() => ctx.updateName(value), 'Name saved'))) saved = current;
+    };
+    input.addEventListener('change', save);
+    input.addEventListener('keydown', (event) => event.key === 'Enter' && input.blur());
+    return el;
+  };
+
+  // The Save button only shows once the address differs from the current one.
+  const emailField = () => {
+    const { input, el } = field('mail', { type: 'email', value: user?.email || '', placeholder: 'you@example.com', 'aria-label': 'Email', autocomplete: 'email', required: true });
+    const save = h('button', { type: 'submit', class: 'btn btn-primary set-inline-btn', hidden: true }, 'Save');
+    const form = h('form', { class: 'set-inline' }, el, save);
+    input.addEventListener('input', () => (save.hidden = input.value.trim() === (user?.email || '')));
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (!form.reportValidity()) return;
-      if (next.value !== confirm.value) {
-        toast('The new passwords do not match.', { type: 'error' });
-        return confirm.focus();
-      }
-      button.disabled = true;
-      const ok = await attempt(() => ctx.updatePassword({ current: current?.value, password: next.value }), 'Password updated');
-      button.disabled = false;
-      if (ok) for (const el of [current, next, confirm]) if (el) el.value = '';
+      save.disabled = true;
+      if (await attempt(() => ctx.updateEmail(input.value), 'Check your inbox to confirm the change')) save.hidden = true;
+      save.disabled = false;
     });
     return form;
   };
 
-  const starterMissing = STARTER_CATEGORIES.some((starter) => !state.categories.some((c) => c.name.toLowerCase() === starter.name.toLowerCase()));
+  // "Change" opens the fields under the row: current (when there is one), new, confirm.
+  const passwordRows = () => {
+    const needsCurrent = hasPassword(user);
+    const panel = h('div', { class: 'set-expand', hidden: true });
+    const opener = h('button', { type: 'button', class: 'btn btn-subtle', 'aria-expanded': 'false' }, needsCurrent ? 'Change' : 'Set password');
+    const pw = (placeholder, autocomplete) =>
+      field('lock', { type: 'password', placeholder, 'aria-label': placeholder, required: true, autocomplete, minlength: autocomplete === 'new-password' ? String(PASSWORD_MIN) : null });
+    const current = needsCurrent ? pw('Current password', 'current-password') : null;
+    const next = pw('New password', 'new-password');
+    const confirm = pw('Confirm new password', 'new-password');
+    const submit = h('button', { type: 'submit', class: 'btn btn-primary' }, 'Save password');
+    const cancel = h('button', { type: 'button', class: 'btn btn-ghost' }, 'Cancel');
+    const form = h('form', { class: 'set-expand-form' }, current?.el, next.el, confirm.el, h('div', { class: 'set-expand-actions' }, cancel, submit));
+    panel.append(form);
+    const setOpen = (open) => {
+      panel.hidden = !open;
+      opener.setAttribute('aria-expanded', String(open));
+      opener.hidden = open;
+      if (open) (current || next).input.focus();
+      else form.reset();
+    };
+    opener.addEventListener('click', () => setOpen(true));
+    cancel.addEventListener('click', () => setOpen(false));
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!form.reportValidity()) return;
+      if (next.input.value !== confirm.input.value) {
+        toast('The new passwords do not match.', { type: 'error' });
+        return confirm.input.focus();
+      }
+      submit.disabled = true;
+      const ok = await attempt(() => ctx.updatePassword({ current: current?.input.value, password: next.input.value }), 'Password updated');
+      submit.disabled = false;
+      if (ok) setOpen(false);
+    });
+    const help = needsCurrent
+      ? `At least ${PASSWORD_MIN} characters. Other devices are signed out when it changes.`
+      : 'You sign in with Google. Add a password to also sign in with your email.';
+    return [row('Password', help, opener), panel];
+  };
 
-  const account = cloud
+  const profile = cloud
     ? group(
-        'Account',
-        row('Email', 'The change happens once you confirm it from the email we send. A link may also go to your current address.', inlineForm({ type: 'email', value: state.user?.email || '', placeholder: 'you@example.com', label: 'Save', action: ctx.updateEmail, success: 'Check your inbox to confirm the change' })),
-        row(
-          'Password',
-          hasPassword(state.user)
-            ? `At least ${PASSWORD_MIN} characters. Your other devices are signed out when it changes.`
-            : `You sign in with Google. Set a password to also sign in with your email (at least ${PASSWORD_MIN} characters).`,
-          passwordForm()
-        ),
-        row('Sign out', state.user?.email, h('button', { type: 'button', class: 'btn btn-subtle', onClick: ctx.signOut }, iconEl('log-out', 15), 'Sign out'))
+        'Profile',
+        'Your account and how you sign in.',
+        row('Avatar', displayName() || user?.email, avatar()),
+        row('Full name', null, nameField()),
+        row('Email', 'Changes once you confirm it from your inbox.', emailField()),
+        ...passwordRows(),
+        row('Sign out', 'Of this browser only. The extension stays connected.', h('button', { type: 'button', class: 'btn btn-subtle', onClick: ctx.signOut }, iconEl('log-out', 15), 'Sign out'))
       )
     : group(
-        'Account',
+        'Profile',
+        'Your account and how you sign in.',
         row(
           'Preview mode',
-          'Your library is kept in this browser only. Sign in to store it in your account and reach it from every device and the extension.',
+          'Your library is kept in this browser only. Sign in to keep it in your account and reach it from every device and the extension.',
           h('button', { type: 'button', class: 'btn btn-primary', onClick: ctx.signIn }, iconEl('log-in', 15), 'Sign in')
         )
       );
 
-  const capture = group(
-    'Capture',
-    extensionRow(row, ctx, cloud)
+  // --- appearance ---
+
+  const motionOn = ambientMotion();
+  const appearance = group(
+    'Appearance',
+    'How h3aven looks and moves.',
+    row(
+      'Background animation',
+      'The moving letters behind page titles and the rotating search hint. Off automatically when your system asks for reduced motion.',
+      toggle('Background animation', motionOn, (on) => {
+        try {
+          localStorage.setItem(STORAGE.motion, on ? 'on' : 'off');
+        } catch {}
+        window.dispatchEvent(new Event('h3aven:motion'));
+        rerender();
+      })
+    )
   );
 
-  const importing = group(
-    'Import',
+  // --- saving and importing ---
+
+  const saving = group(
+    'Saving',
+    'Ways to bring links into h3aven.',
+    extensionRow(row, ctx, cloud),
     row(
       'Browser bookmarks',
-      'From Chrome, Edge, Brave or Firefox. In Chrome: open the bookmark manager (Ctrl+Shift+O), then ⋮ → Export bookmarks, and choose the saved HTML file here.',
+      'From Chrome, Edge, Brave or Firefox. In Chrome: open the bookmark manager (Ctrl+Shift+O), then ⋮ → Export bookmarks, and choose the saved file here.',
       importButton()
     ),
     previews.state.total > 0 && row('Preview images', null, previewStatus())
   );
 
-  const motionOn = ambientMotion();
-  const appearance = group(
-    'Appearance',
-    row(
-      'Background animation',
-      'The moving letters behind page titles and the rotating search hint. Paused automatically when your system asks for reduced motion.',
-      h(
-        'button',
-        {
-          type: 'button', class: 'btn btn-subtle', 'aria-pressed': String(motionOn),
-          onClick: () => {
-            try {
-              localStorage.setItem(STORAGE.motion, motionOn ? 'off' : 'on');
-            } catch {}
-            window.dispatchEvent(new Event('h3aven:motion'));
-            rerender();
-          },
-        },
-        motionOn ? 'Pause' : 'Resume'
-      )
-    )
-  );
+  // --- library ---
 
+  const starterMissing = STARTER_CATEGORIES.some((starter) => !state.categories.some((c) => c.name.toLowerCase() === starter.name.toLowerCase()));
   const library = group(
     'Library',
+    'Collections and the data kept in this browser.',
     row(
       'Starter collections',
       'Design, Development, Reading, Inspiration, Productivity and Personal, with their folders. Existing ones are left alone.',
@@ -949,7 +1013,7 @@ function settingsView(ctx) {
   return {
     title: 'Settings',
     crumbs: [{ label: 'Settings' }],
-    node: h('div', null, hero({ title: 'Settings' }), notices(ctx), h('div', { class: 'settings' }, account, importing, appearance, capture, library)),
+    node: h('div', null, hero({ title: 'Settings' }), notices(ctx), h('div', { class: 'settings' }, profile, appearance, saving, library)),
   };
 }
 

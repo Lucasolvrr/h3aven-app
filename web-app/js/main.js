@@ -5,7 +5,7 @@ import { ALLOW_PREVIEW_MODE } from './config.js';
 import { getSupabase } from './data/supabase.js';
 import { createCloudDriver } from './data/cloud-driver.js';
 import { createLocalDriver, clearLocalLibrary } from './data/local-driver.js';
-import { start, reload, state } from './data/store.js';
+import { start, reload, state, setUser } from './data/store.js';
 import { mountShell } from './ui/shell.js';
 import { showAuth, showRecovery, hideAuth, authMessage, hasPassword } from './ui/auth.js';
 import { toast, confirmDialog } from './ui/overlay.js';
@@ -99,6 +99,13 @@ const app = {
   signOut: async () => {
     signingOut = true;
     await supabase?.auth.signOut();
+  },
+  /** The name shown in the sidebar and greeting (Google fills it in; email accounts can set it). */
+  updateName: async (name) => {
+    const clean = name.trim().slice(0, 80);
+    const { data, error } = await supabase.auth.updateUser({ data: { full_name: clean, name: clean } });
+    if (error) throw new Error(authMessage(error));
+    setUser(data.user);
   },
   updateEmail: async (email) => {
     const { error } = await supabase.auth.updateUser({ email: email.trim() }, { emailRedirectTo: location.origin + location.pathname });
