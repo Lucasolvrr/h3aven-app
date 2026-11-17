@@ -331,11 +331,13 @@ export function showAuth({ supabase, onPreview, mode: startMode = 'signin', emai
     );
     form.addEventListener('submit', onSubmit);
 
+    // Native replaceChildren/append print `false` as text: drop the empty slots first.
     body.replaceChildren(
-      mode !== 'forgot' && google,
-      mode !== 'forgot' && h('div', { class: 'auth-or' }, h('span', null, 'or with email')),
-      form,
-      status,
+      ...[
+        mode !== 'forgot' && google,
+        mode !== 'forgot' && h('div', { class: 'auth-or' }, h('span', null, 'or with email')),
+        form,
+        status,
       h(
         'div',
         { class: 'auth-links' },
@@ -343,16 +345,19 @@ export function showAuth({ supabase, onPreview, mode: startMode = 'signin', emai
         signin && linkButton('Create an account', () => go('signup')),
         signup && linkButton('I already have an account', () => go('signin')),
         mode === 'forgot' && linkButton('Back to sign in', () => go('signin'))
-      )
+      ),
+      ].filter(Boolean)
     );
   }
 
   card.append(
-    h('img', { class: 'sb-logo', src: 'icons/favicon-64.png', alt: APP_NAME }),
-    title,
-    sub,
-    body,
-    !onPreview && h('p', { class: 'auth-note' }, 'Your bookmarks sync between this app and the extension.')
+    ...[
+      h('img', { class: 'sb-logo', src: 'icons/favicon-64.png', alt: APP_NAME }),
+      title,
+      sub,
+      body,
+      !onPreview && h('p', { class: 'auth-note' }, 'Your bookmarks sync between this app and the extension.'),
+    ].filter(Boolean)
   );
   render();
   if (notice) status.set(notice.text, notice);

@@ -22,6 +22,7 @@ export const STORAGE = {
   aspect: 'h3aven.thumb.aspect',
   localLibrary: 'h3aven.local.v1',
   motion: 'h3aven.motion',
+  onboarding: 'h3aven.onboarding',
 };
 
 // The interface is written in English, so dates and numbers are formatted to match it.

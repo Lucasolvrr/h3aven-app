@@ -19,6 +19,7 @@ import { morphingTabs, tabAddButton, forgetTabs } from './tabs.js';
 import { importButton, previewStatus } from './import.js';
 import { previews } from '../services/importer.js';
 import { extension } from '../services/extension.js';
+import { onboardingCard } from './onboarding.js';
 import { selection } from './selection.js';
 import { openMenu, toast, attempt } from './overlay.js';
 import { PASSWORD_MIN, hasPassword } from './auth.js';
@@ -264,6 +265,12 @@ function homeItems() {
   return group ? all.filter((b) => inSiteGroup(b, group)) : all;
 }
 
+/** The getting-started checklist, on Home only while there is something left to do. */
+function homeOnboarding() {
+  const card = onboardingCard({ where: 'home', rerender: () => rerender() });
+  return card && h('div', { class: 'home-onboarding' }, card);
+}
+
 function homeView(ctx, route) {
   homeSite = route.site || 'all';
   const counts = select.counts();
@@ -280,6 +287,7 @@ function homeView(ctx, route) {
         title: counts.all ? `${plural(counts.all, 'bookmark')} in your library.` : 'Your library starts here.',
       }),
       notices(ctx),
+      homeOnboarding(),
       gridSection({
         title: 'Bookmarks',
         lead: counts.all ? siteFilters(select.bookmarks()) : null,
@@ -1013,7 +1021,7 @@ function settingsView(ctx) {
   return {
     title: 'Settings',
     crumbs: [{ label: 'Settings' }],
-    node: h('div', null, hero({ title: 'Settings' }), notices(ctx), h('div', { class: 'settings' }, profile, appearance, saving, library)),
+    node: h('div', null, hero({ title: 'Settings' }), notices(ctx), h('div', { class: 'settings' }, onboardingCard({ where: 'settings', rerender: () => rerender() }), profile, appearance, saving, library)),
   };
 }
 

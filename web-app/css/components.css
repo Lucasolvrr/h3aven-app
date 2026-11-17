@@ -767,3 +767,110 @@ button.chip:hover, a.chip:hover { background: var(--surface-hover); color: var(-
   .bm-act:not(.is-on) { display: none; }
   .masonry.is-selecting .bm-top { display: flex; }
 }
+
+/* --- Onboarding checklist (ui/checklist.js) ------------------------------------------
+   A getting-started card: progress ring and title, the open step on a lifted
+   tile with its action, the rest as quiet rows, and the finished ones folded
+   under "N completed". Panels open on a non-overshooting curve. */
+
+.ocl {
+  --ocl-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  width: 100%;
+  max-width: 480px;
+  border: 1px solid var(--border);
+  border-radius: 16px; /* same as the Settings cards */
+  background: var(--surface);
+  container-type: inline-size;
+}
+.ocl-head { display: flex; align-items: center; gap: 14px; padding: 16px 18px 16px 20px; }
+.ocl-head-text { flex: 1; min-width: 0; }
+.ocl-title { font-size: 15.5px; font-weight: 600; color: var(--text); letter-spacing: -0.01em; }
+.ocl-count { margin-top: 1px; font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.ocl-hide { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px; border-radius: 999px; color: var(--text-2); font-size: 13.5px; font-weight: 500; transition: background var(--fast), color var(--fast); }
+.ocl-hide:hover { background: rgba(255, 255, 255, 0.06); color: var(--text); }
+.ocl-hide .icon { transform: rotate(180deg); transition: transform 300ms var(--ocl-ease); }
+.ocl.is-hidden .ocl-hide .icon { transform: none; }
+@container (max-width: 379px) { .ocl-hide-label { display: none; } }
+
+/* progress ring */
+.ocl-ring { position: relative; flex: none; width: 36px; height: 36px; }
+.ocl-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ocl-ring circle { fill: none; stroke-width: 3; }
+.ocl-ring-track { stroke: rgba(255, 255, 255, 0.1); }
+.ocl-ring-fill { stroke: var(--text); stroke-linecap: round; transition: stroke-dashoffset 700ms var(--ocl-ease); }
+.ocl-ring-tick { position: absolute; inset: 0; display: grid; place-items: center; color: var(--text); opacity: 0; transform: scale(0.6); transition: opacity 200ms, transform 360ms var(--ocl-ease); }
+.ocl-ring-tick svg { width: 16px; height: 16px; transform: none; }
+.ocl.is-complete .ocl-ring-tick { opacity: 1; transform: none; }
+.ocl.is-complete .ocl-ring-tick .ocl-tick { animation: ocl-draw 360ms var(--ocl-ease) 200ms both; }
+
+/* body folds away under Hide */
+.ocl-body { display: grid; grid-template-rows: 1fr; border-top: 1px solid var(--border); transition: grid-template-rows 360ms var(--ocl-ease), border-color 360ms; }
+.ocl-body-inner { min-height: 0; overflow: hidden; }
+.ocl.is-hidden .ocl-body { grid-template-rows: 0fr; border-color: transparent; }
+.ocl-list { list-style: none; margin: 0; padding: 0; }
+.ocl-body-inner > .ocl-list:first-child { padding: 8px 8px 0; }
+
+.ocl-step { display: grid; grid-template-columns: 40px minmax(0, 1fr); align-items: start; padding: 0 12px 0 8px; border-radius: 10px; transition: background 300ms var(--ocl-ease); }
+.ocl-step.is-open { background: rgba(255, 255, 255, 0.05); }
+.ocl-step-main { min-width: 0; }
+.ocl-step-title { display: flex; align-items: center; width: 100%; min-height: 44px; padding: 0 4px; color: var(--text); font-size: 14.5px; font-weight: 500; text-align: left; border-radius: 10px; }
+.ocl-step-title:focus-visible,
+.ocl-check:focus-visible,
+.ocl-action:focus-visible,
+.ocl-hide:focus-visible,
+.ocl-done-toggle:focus-visible { outline: 2px solid rgba(242, 242, 242, 0.7); outline-offset: 2px; }
+.ocl-step.is-done .ocl-step-title { color: var(--text-3); }
+
+/* checkbox: fills from the centre, then draws its tick */
+.ocl-check { position: relative; display: grid; place-items: center; width: 40px; height: 44px; }
+.ocl-check::before { content: ''; position: absolute; top: 11px; left: 9px; width: 22px; height: 22px; border-radius: 50%; border: 1.5px solid rgba(255, 255, 255, 0.32); transition: border-color 200ms; }
+.ocl-check::after { content: ''; position: absolute; top: 11px; left: 9px; width: 22px; height: 22px; border-radius: 50%; background: var(--text); transform: scale(0); transition: transform 300ms var(--ocl-ease); }
+.ocl-check:hover:not([aria-disabled])::before { border-color: rgba(255, 255, 255, 0.6); }
+.ocl-check svg { position: relative; z-index: 1; width: 13px; height: 13px; color: #111; }
+.ocl-check .ocl-tick { stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset 280ms var(--ocl-ease) 120ms; }
+.ocl-check[aria-checked='true']::after { transform: scale(1); }
+.ocl-check[aria-checked='true'] .ocl-tick { stroke-dashoffset: 0; }
+.ocl-check[aria-disabled] { cursor: default; }
+
+/* the open step's panel */
+.ocl-panel { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 360ms var(--ocl-ease); }
+.ocl-step.is-open .ocl-panel { grid-template-rows: 1fr; }
+.ocl-panel-inner { min-height: 0; overflow: hidden; padding: 0 4px; }
+.ocl-step.is-open .ocl-panel-inner { padding-bottom: 16px; }
+.ocl-step:first-child { margin-top: 0; }
+.ocl-step + .ocl-step { margin-top: 2px; }
+.ocl-step.is-open { padding-top: 4px; }
+.ocl-desc { margin-top: 0; font-size: 13.5px; line-height: 1.45; color: var(--text-2); }
+.ocl-error { margin-top: 8px; font-size: 13px; color: var(--danger); }
+.ocl-action { display: inline-flex; align-items: center; gap: 8px; height: 36px; margin-top: 12px; padding: 0 14px 0 16px; border-radius: 999px; background: var(--text); color: #111; font-size: 13.5px; font-weight: 500; transition: background var(--fast), transform var(--fast); }
+.ocl-action:hover:not(:disabled) { background: #e2e2e2; }
+.ocl-action:active:not(:disabled) { transform: scale(0.97); }
+.ocl-action:disabled { opacity: 0.6; cursor: default; }
+.ocl-action .icon { transition: transform 200ms var(--ocl-ease); }
+.ocl-action:hover .icon { transform: translateX(2px); }
+
+/* "N completed": folds open to show the finished steps */
+.ocl-done { padding: 0 8px 8px; }
+.ocl-done[hidden] { display: none; }
+.ocl-done-toggle { display: flex; align-items: center; justify-content: space-between; width: 100%; height: 44px; margin-top: 4px; padding: 0 12px 0 52px; border-radius: 10px; color: var(--text-3); font-size: 13.5px; transition: color var(--fast), background var(--fast); }
+.ocl-done-toggle:hover { color: var(--text-2); background: rgba(255, 255, 255, 0.03); }
+.ocl-done-toggle .icon { transition: transform 300ms var(--ocl-ease); }
+.ocl-done.is-open .ocl-done-toggle .icon { transform: rotate(180deg); }
+.ocl-done-wrap { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 360ms var(--ocl-ease); }
+.ocl-done.is-open .ocl-done-wrap { grid-template-rows: 1fr; }
+.ocl-done-list { min-height: 0; overflow: hidden; }
+
+@keyframes ocl-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.ocl-ring-tick .ocl-tick { stroke-dasharray: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ocl *,
+  .ocl *::before,
+  .ocl *::after { transition-duration: 1ms !important; animation-duration: 1ms !important; transition-delay: 0s !important; }
+}
+
+/* placement */
+.home-onboarding { padding: 0 var(--gutter); margin: 4px 0 30px; transition: height 500ms cubic-bezier(0.32, 0.72, 0, 1), margin 500ms cubic-bezier(0.32, 0.72, 0, 1), opacity 260ms ease; }
+/* after the last step: the card fades and its space closes */
+.home-onboarding.is-leaving { overflow: hidden; margin-top: 0; margin-bottom: 0; opacity: 0; }
+.settings > .ocl { max-width: none; }
