@@ -138,7 +138,6 @@ export async function start({ driver: nextDriver, user = null, supabase = null }
   state.ready = false;
   emit();
   await reload();
-  await seedStarterCategoriesOnce();
 }
 
 export async function reload() {
@@ -176,17 +175,6 @@ export async function reload() {
   }
   state.ready = true;
   emit();
-}
-
-async function seedStarterCategoriesOnce() {
-  if (state.mode !== 'cloud' || state.schemaOutdated || state.error || state.categories.length) return;
-  if (state.user?.user_metadata?.starter_categories) return;
-  try {
-    await addStarterCategories();
-    await client?.auth.updateUser({ data: { starter_categories: true } });
-  } catch (error) {
-    console.warn('Could not create starter categories', error);
-  }
 }
 
 // --- selectors ---------------------------------------------------------------

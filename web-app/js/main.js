@@ -12,6 +12,7 @@ import { toast, confirmDialog } from './ui/overlay.js';
 
 let supabase = null;
 let activeUserId = null;
+let signingOut = false; // true while the person signs out on purpose
 
 function enterPreview() {
   activeUserId = null;
@@ -75,6 +76,13 @@ function reportBrokenLink(redirect, signedIn) {
   });
 }
 
+/** Signed out without asking (session revoked or expired): say so rather than quietly switching to preview. */
+function sessionEnded() {
+  const wasSignedIn = Boolean(activeUserId);
+  signedOut();
+  if (wasSignedIn) signIn({ notice: { text: 'Your session ended. Sign in again to keep syncing.', error: true } });
+}
+
 const ARRIVAL_TOAST = {
   signup: 'Email confirmed. Welcome to h3aven.',
   email_change: 'Email address updated.',
@@ -89,6 +97,7 @@ const app = {
   signIn,
   reload,
   signOut: async () => {
+    signingOut = true;
     await supabase?.auth.signOut();
   },
   updateEmail: async (email) => {
@@ -110,18 +119,25 @@ const app = {
     // Anyone holding the old password is signed out on their devices.
     await supabase.auth.signOut({ scope: 'others' }).catch(() => {});
   },
-  // The extension authenticates with the session's refresh token.
-  getSyncToken: async () => (await supabase?.auth.getSession())?.data.session?.refresh_token || '',
+  // A session of the extension's own (see supabase/functions/extension-token).
+  // Never this tab's refresh token: two clients refreshing the same token make
+  // Supabase revoke the session, which signed the web app out.
+  getSyncToken: async () => {
+    if (!supabase) throw new Error('Could not reach the server.');
+    const { data, error } = await supabase.functions.invoke('extension-token', { body: {} });
+    if (error || !data?.refresh_token) throw new Error(data?.error || 'Could not create a token for the extension. Try again.');
+    return data.refresh_token;
+  },
   resetLocal: async ({ keepSamples }) => {
     const yes = await confirmDialog({
-      title: keepSamples ? 'Restore the sample library?' : 'Start with an empty library?',
+      title: keepSamples ? 'Load the sample library?' : 'Clear the library?',
       message: 'Everything saved in preview mode on this browser is replaced.',
-      confirmLabel: keepSamples ? 'Restore samples' : 'Start empty',
+      confirmLabel: keepSamples ? 'Load samples' : 'Clear all',
     });
     if (!yes || state.mode !== 'local') return;
     clearLocalLibrary({ keepSamples });
     await enterPreview();
-    toast(keepSamples ? 'Sample library restored' : 'Library cleared');
+    toast(keepSamples ? 'Sample library loaded' : 'Library cleared');
   },
 };
 
@@ -169,7 +185,7 @@ async function boot() {
   supabase.auth.onAuthStateChange((event, next) => {
     if (event === 'INITIAL_SESSION') setTimeout(() => arrive(next), 0);
     else if (event === 'PASSWORD_RECOVERY') next && setTimeout(() => recover(next), 0);
-    else if (event === 'SIGNED_OUT') setTimeout(signedOut, 0);
+    else if (event === 'SIGNED_OUT') setTimeout(() => (signingOut ? ((signingOut = false), signedOut()) : sessionEnded()), 0);
     else if (next && (event === 'SIGNED_IN' || event === 'USER_UPDATED') && !recovering) setTimeout(() => enterCloud(next), 0);
   });
 }

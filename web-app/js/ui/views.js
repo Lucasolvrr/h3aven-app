@@ -734,17 +734,24 @@ function settingsView(ctx) {
     'Capture',
     row(
       'Chrome extension',
-      cloud ? 'Paste this sync token into the extension’s options page, once.' : 'Sign in to connect the extension to your account.',
+      cloud ? 'Creates a separate sign-in for the extension, so it never signs this app out. Paste it into the extension’s options page.' : 'Sign in to connect the extension to your account.',
       h(
         'button',
         {
           type: 'button',
           class: 'btn btn-subtle',
           disabled: !cloud,
-          onClick: async () => {
-            const token = await ctx.getSyncToken();
-            if (!token) return toast('No active session — sign in again.', { type: 'error' });
-            toast((await copyText(token)) ? 'Sync token copied' : 'Could not copy the token', { type: 'info' });
+          onClick: async (event) => {
+            const button = event.currentTarget;
+            button.disabled = true;
+            try {
+              const token = await ctx.getSyncToken();
+              toast((await copyText(token)) ? 'Sync token copied. Paste it in the extension’s options.' : 'Could not copy the token', { type: 'info' });
+            } catch (error) {
+              toast(error.message, { type: 'error' });
+            } finally {
+              button.disabled = false;
+            }
           },
         },
         iconEl('copy', 15),
@@ -800,12 +807,12 @@ function settingsView(ctx) {
     !cloud &&
       row(
         'Sample library',
-        'Preview mode opens with sample bookmarks so you can look around.',
+        'Preview mode starts empty. Load a set of sample bookmarks to look around, or clear everything saved here.',
         h(
           'div',
           { class: 'section-actions' },
-          h('button', { type: 'button', class: 'btn btn-ghost', onClick: () => ctx.resetLocal({ keepSamples: true }) }, 'Restore samples'),
-          h('button', { type: 'button', class: 'btn btn-subtle btn-danger', onClick: () => ctx.resetLocal({ keepSamples: false }) }, 'Start empty')
+          h('button', { type: 'button', class: 'btn btn-ghost', onClick: () => ctx.resetLocal({ keepSamples: true }) }, 'Load samples'),
+          h('button', { type: 'button', class: 'btn btn-subtle btn-danger', onClick: () => ctx.resetLocal({ keepSamples: false }) }, 'Clear all')
         )
       )
   );

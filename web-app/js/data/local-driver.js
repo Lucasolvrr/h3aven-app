@@ -10,12 +10,25 @@ import { buildSampleLibrary } from './sample.js';
 const uid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
 const now = () => new Date().toISOString();
 
+const emptyLibrary = () => ({ links: [], categories: [], subcategories: [], tags: [], linkTags: [], seeded: true });
+
+/**
+ * Preview mode starts empty. Browsers that were given the old sample library
+ * lose it here: untouched, the whole library goes; otherwise only the sample
+ * links do, and what the person added stays.
+ */
+function withoutSamples(db) {
+  const isSample = (link) => link.source === 'sample';
+  if (!db.links.some(isSample)) return db;
+  if (db.links.every(isSample)) return emptyLibrary();
+  const gone = new Set(db.links.filter(isSample).map((link) => link.id));
+  return { ...db, links: db.links.filter((link) => !gone.has(link.id)), linkTags: db.linkTags.filter((pair) => !gone.has(pair.link_id)) };
+}
+
 export function createLocalDriver() {
-  let db = readJson(STORAGE.localLibrary, null);
-  if (!db) {
-    db = buildSampleLibrary();
-    writeJson(STORAGE.localLibrary, db);
-  }
+  const stored = readJson(STORAGE.localLibrary, null);
+  let db = stored && !stored.samplesRequested ? withoutSamples(stored) : stored || emptyLibrary();
+  if (db !== stored) writeJson(STORAGE.localLibrary, db);
   const save = () => writeJson(STORAGE.localLibrary, db);
 
   return {
@@ -170,7 +183,7 @@ export function createLocalDriver() {
   };
 }
 
+/** keepSamples: load the sample library on purpose (it stays until cleared). */
 export function clearLocalLibrary({ keepSamples }) {
-  if (keepSamples) localStorage.removeItem(STORAGE.localLibrary);
-  else writeJson(STORAGE.localLibrary, { links: [], categories: [], subcategories: [], tags: [], linkTags: [], seeded: true });
+  writeJson(STORAGE.localLibrary, keepSamples ? { ...buildSampleLibrary(), samplesRequested: true } : emptyLibrary());
 }
