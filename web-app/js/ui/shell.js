@@ -412,9 +412,22 @@ export function mountShell(app) {
 
   const ctx = { ...app, rerender: () => renderMain() };
 
+  // A field being edited in place would be wiped by a redraw (background
+  // previews update the store every few seconds): hold redraws until it closes.
+  let heldRender = false;
+  window.addEventListener('h3aven:inline-edit-done', () => {
+    if (!heldRender) return;
+    heldRender = false;
+    setTimeout(renderMain, 0);
+  });
+
   function renderMain() {
     const route = parseRoute();
     const routeChanged = route.key !== currentKey;
+    if (!routeChanged && view.querySelector('.ie.is-editing')) {
+      heldRender = true;
+      return;
+    }
     const pageChanged = (route.page || route.key) !== currentPage;
     if (routeChanged) {
       currentKey = route.key;
@@ -521,7 +534,7 @@ export function mountShell(app) {
       { class: 'bulkbar' },
       count,
       group.el,
-      h('button', { type: 'button', class: 'icon-btn bulkbar-close', 'aria-label': 'Cancel selection', title: 'Cancel', onClick: finish }, iconEl('x', 15))
+      h('button', { type: 'button', class: 'dialog-close bulkbar-close', 'aria-label': 'Cancel selection', title: 'Cancel', onClick: finish }, iconEl('x', 15))
     );
     // Same place as the search dock (the workspace, not the window), which it stands in for.
     main.append(el);

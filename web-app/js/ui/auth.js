@@ -13,6 +13,7 @@ import { h } from '../lib/dom.js';
 import { iconEl } from '../lib/icons.js';
 import { createAsciiField } from './ascii.js';
 import { openModal, toast } from './overlay.js';
+import { passwordStrength } from './password-strength.js';
 
 /** Minimum for new passwords (sign-up, reset, Settings). Old 6-character passwords still sign in. */
 export const PASSWORD_MIN = 8;
@@ -85,7 +86,7 @@ export function hideAuth() {
 function mount(card, titleId, { dismissible = false } = {}) {
   hideAuth();
   if (dismissible) {
-    card.prepend(h('button', { type: 'button', class: 'icon-btn auth-close', 'aria-label': 'Close', title: 'Close', onClick: hideAuth }, iconEl('x', 16)));
+    card.prepend(h('button', { type: 'button', class: 'dialog-close auth-close', 'aria-label': 'Close', onClick: hideAuth }, iconEl('x', 16)));
     sheet = openModal({ className: 'auth-modal', label: 'Sign in', content: card, onClose: () => (sheet = null) });
     // Named by the visible title, so it follows the state (Sign in / Create account / …).
     sheet.panel.removeAttribute('aria-label');
@@ -367,17 +368,23 @@ export function showAuth({ supabase, onPreview, mode: startMode = 'signin', emai
 /** After a reset link: choose the new password. onDone() enters the app. */
 export function showRecovery({ supabase, onDone }) {
   const titleId = nextId('title');
-  const passwordWrap = passwordInput({ autocomplete: 'new-password', minlength: String(PASSWORD_MIN) });
+  // The new password shows its strength as it is typed; "Suggest one" fills both fields.
+  const strength = passwordStrength({ label: 'New password', minLength: PASSWORD_MIN });
   const confirmWrap = passwordInput({ autocomplete: 'new-password', minlength: String(PASSWORD_MIN) });
-  const password = passwordWrap.input;
+  const password = strength.input;
   const confirm = confirmWrap.input;
   const status = statusLine();
+  const suggest = h('button', { type: 'button', class: 'btn btn-subtle btn-lg' }, 'Suggest one');
+  suggest.addEventListener('click', () => {
+    confirm.value = strength.suggest();
+    password.focus();
+  });
   const form = h(
     'form',
     { class: 'auth-form' },
-    field('New password', passwordWrap, `At least ${PASSWORD_MIN} characters.`),
+    strength.el,
     field('Confirm new password', confirmWrap),
-    h('button', { type: 'submit', class: 'btn btn-primary btn-lg btn-block' }, 'Save new password')
+    h('div', { class: 'auth-recovery-actions' }, suggest, h('button', { type: 'submit', class: 'btn btn-primary btn-lg' }, 'Save new password'))
   );
   const card = h(
     'div',

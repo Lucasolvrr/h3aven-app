@@ -290,17 +290,15 @@
 .empty-text { max-width: 360px; font-size: 13px; }
 .empty .btn { margin-top: 14px; padding: 0 18px; border-radius: 999px; }
 
-/* #/connect: the extension's one-click connection, centred in the page. */
-.connect { display: grid; place-items: center; min-height: calc(100dvh - 140px); }
-.connect-card { padding-top: 24px; }
-.connect-card .empty-title { margin-top: 8px; font-size: 20px; font-family: var(--font-serif); font-weight: 400; letter-spacing: -0.01em; }
-.connect-card .empty-text { max-width: 400px; font-size: 14px; line-height: 1.5; color: var(--text-2); }
-.connect-card .empty-text strong { color: var(--text); font-weight: 500; }
-.connect-steps { max-width: 400px; margin: 8px 0 0; padding-left: 20px; text-align: left; color: var(--text-2); font-size: 13.5px; line-height: 1.7; }
+/* The connect-the-extension dialog (ui/connect.js), in the sign-in modal's style. */
+.connect-body { display: grid; gap: 16px; justify-items: stretch; }
+.connect-steps { margin: 0; padding-left: 20px; text-align: left; color: var(--text-2); font-size: 14px; line-height: 1.7; }
 .connect-steps code { padding: 1px 6px; border-radius: 6px; background: rgba(255, 255, 255, 0.07); color: var(--text); font-family: var(--font-mono); font-size: 12px; }
-.connect-note { max-width: 400px; font-size: 12.5px; color: var(--text-3); }
-.connect-error { max-width: 400px; font-size: 13px; color: var(--danger); }
-.connect-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.connect-account { display: inline-flex; justify-self: center; align-items: center; gap: 8px; height: 34px; padding: 0 14px; border-radius: 999px; background: rgba(255, 255, 255, 0.06); color: var(--text); font-size: 13.5px; }
+.connect-account .icon { color: var(--text-3); }
+.connect-note { font-size: 12.5px; color: var(--text-3); }
+.connect-error { font-size: 13px; color: var(--danger); }
+.connect-done { display: grid; justify-self: center; place-items: center; width: 52px; height: 52px; border-radius: 50%; background: rgba(74, 222, 128, 0.12); color: #4ade80; }
 
 /* --- Settings ------------------------------------------------------------------ */
 
@@ -320,13 +318,13 @@
 
 /* Text fields with their icon inside */
 .set-field { position: relative; display: flex; align-items: center; width: 300px; }
-.set-field > .icon { position: absolute; left: 12px; color: var(--text-3); pointer-events: none; }
+.set-field > .icon { position: absolute; left: 13px; color: var(--text-3); pointer-events: none; }
 .set-input {
   width: 100%;
-  height: 38px;
-  padding: 0 12px 0 36px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  height: 40px;
+  padding: 0 14px 0 38px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
   background: rgba(255, 255, 255, 0.03);
   color: var(--text);
   font: inherit;
@@ -336,10 +334,10 @@
 }
 .set-input::placeholder { color: var(--text-3); }
 .set-input:hover { border-color: var(--border-strong); }
-.set-input:focus { border-color: rgba(255, 255, 255, 0.28); background: rgba(255, 255, 255, 0.05); }
+.set-input:focus { border-color: rgba(255, 255, 255, 0.34); background: rgba(255, 255, 255, 0.05); box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.07); }
 .set-field:focus-within > .icon { color: var(--text-2); }
 .set-inline { display: flex; align-items: center; gap: 8px; }
-.set-inline-btn { height: 38px; border-radius: 10px; }
+.set-inline-btn { height: 40px; }
 
 /* Avatar: the Google photo when there is one, else initials */
 .set-avatar { display: grid; place-items: center; width: 44px; height: 44px; overflow: hidden; border-radius: 50%; background: #4a4a52; color: #fff; font-size: 15px; font-weight: 600; letter-spacing: 0.02em; }
@@ -348,8 +346,12 @@
 /* Password: the fields open under the row */
 .set-expand { padding: 4px 20px 20px; border-top: 0 !important; }
 .set-expand[hidden] { display: none; }
-.set-expand-form { display: grid; justify-items: end; gap: 10px; animation: rise-in var(--medium) var(--ease); }
-.set-expand-actions { display: flex; gap: 8px; margin-top: 4px; }
+/* one left-aligned column under the label: current, new (with its strength), confirm, actions */
+.set-expand-form { display: grid; gap: 12px; width: min(460px, 100%); animation: rise-in var(--medium) var(--ease); }
+.set-expand-form .set-field { width: 100%; }
+.set-expand-actions { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.set-expand-gap { flex: 1; }
+.set-expand-form .pws + .set-field { margin-top: 2px; }
 
 /* On/off switch */
 .switch { position: relative; flex: none; width: 42px; height: 24px; border-radius: 999px; background: #3f3f46; transition: background 200ms var(--ease); }
@@ -406,21 +408,23 @@
 .auth-modal .sb-logo { justify-self: center; width: 44px; height: 44px; border-radius: 12px; margin-bottom: 4px; }
 .auth-modal .auth-title { font-size: 28px; }
 .auth-modal .auth-sub { margin-top: -10px; margin-bottom: 8px; }
-.auth-modal .btn-lg { height: 50px; border-radius: 999px; font-size: 14.5px; }
+.auth-modal .btn-lg { height: 46px; font-size: 14.5px; }
 .auth-modal .btn-google { position: relative; background: rgba(255, 255, 255, 0.06); color: var(--text); border: 1px solid rgba(255, 255, 255, 0.1); }
 .auth-modal .btn-google:hover:not(:disabled) { background: rgba(255, 255, 255, 0.1); }
 .auth-modal .btn-google svg { position: absolute; left: 20px; }
-.auth-modal .input { min-height: 50px; padding: 0 20px; border-radius: 999px; border-color: transparent; background: rgba(255, 255, 255, 0.06); font-size: 14.5px; }
-.auth-modal .input:focus { border-color: rgba(255, 255, 255, 0.2); }
+.auth-modal .input { min-height: 46px; padding: 0 16px; border-radius: 14px; font-size: 14.5px; }
+
 .auth-modal .auth-status:empty { display: none; }
 .auth-modal .auth-links { justify-content: center; gap: 22px; }
 .auth-body { display: grid; gap: 14px; }
+.auth-recovery-actions { display: flex; justify-content: space-between; gap: 10px; margin-top: 4px; }
+.auth-card .pws { text-align: left; }
 .auth-modal .auth-body { gap: 16px; }
 .auth-field { display: grid; gap: 6px; text-align: left; }
 .auth-label { font-size: 12.5px; font-weight: 500; color: var(--text-2); }
-.auth-modal .auth-label { padding-left: 20px; }
+.auth-modal .auth-label { padding-left: 2px; }
 .auth-hint { font-size: 12px; color: var(--text-3); }
-.auth-modal .auth-field .auth-hint { padding-left: 20px; }
+.auth-modal .auth-field .auth-hint { padding-left: 2px; }
 .pw-wrap { position: relative; }
 .pw-wrap .input { width: 100%; padding-right: 48px; }
 .pw-toggle { position: absolute; top: 50%; right: 6px; transform: translateY(-50%); width: 38px; height: 38px; border-radius: 50%; color: var(--text-3); }
@@ -432,7 +436,7 @@
 .auth-sent-tip { text-align: center; }
 .auth-sub strong { color: var(--text); font-weight: 500; word-break: break-all; }
 .auth-card[aria-busy='true'] .btn-primary { opacity: 0.7; }
-.auth-close { position: absolute; top: 16px; right: 16px; width: 32px; height: 32px; border-radius: 50%; color: var(--text-3); }
+.dialog-close.auth-close { position: absolute; top: 18px; right: 18px; margin: 0; } /* the round close button: .dialog-close */
 .auth-note { color: var(--text-3); font-size: 12px; }
 @media (max-width: 767px) {
   .sb-chevron { width: 32px; height: 32px; }
@@ -487,6 +491,5 @@
   .set-row-control { justify-content: flex-start; flex-wrap: wrap; }
   .set-field, .set-inline { width: 100%; }
   .set-inline .set-field { flex: 1; }
-  .set-expand-form { justify-items: stretch; }
-  .set-expand-form .set-field { width: 100%; }
+  .set-expand-actions { flex-wrap: wrap; }
 }

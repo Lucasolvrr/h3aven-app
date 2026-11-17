@@ -13,6 +13,7 @@ import { fetchPreview, searchMedia } from '../services/metadata.js';
 import { suggestLocation } from '../services/organize.js';
 import { openModal, openMenu, toast, attempt, confirmDialog } from './overlay.js';
 import { fallbackTile, knownRatio } from './masonry.js';
+import { segmentedControl } from './segmented.js';
 
 // --- shared pieces ---------------------------------------------------------------
 
@@ -534,7 +535,7 @@ export function openBookmark(id, { sequence = null, origin = null } = {}) {
         }),
         more,
         iconButton('arrow-up-right', 'Open Link', () => openLink(bookmark), { class: 'is-primary', attrs: { dataset: { key: 'open' } } }),
-        iconButton('x', 'Close', () => modal.close(), { class: 'is-quiet' })
+        iconButton('x', 'Close', () => modal.close(), { class: 'is-close' })
       )
     );
 
@@ -876,14 +877,16 @@ export function openMediaSearch() {
   const input = h('input', { class: 'input', type: 'search', placeholder: 'Search by title…', autofocus: true, autocomplete: 'off' });
   const results = h('div', { class: 'result-list' });
   const status = h('p', { class: 'dialog-text' }, 'Results come from TMDB and Spotify.');
-  const segmented = h('div', { class: 'segmented', role: 'group', 'aria-label': 'Type' });
-  const paintSegmented = () =>
-    segmented.replaceChildren(
-      ...MEDIA_SEARCH.map((option) =>
-        h('button', { type: 'button', 'aria-pressed': String(option.key === category), onClick: () => ((category = option.key), paintSegmented(), run()) }, option.label)
-      )
-    );
-  paintSegmented();
+  // Movies / Series / Music: the same gliding segmented control as the Library tabs.
+  const segmented = segmentedControl({
+    label: 'Type',
+    items: MEDIA_SEARCH.map((option) => ({ key: option.key, label: option.label })),
+    value: category,
+    onChange: (key) => {
+      category = key;
+      run();
+    },
+  }).el;
 
   const run = async () => {
     const query = input.value.trim();
