@@ -12,6 +12,7 @@ import { openMenu, hasOpenModal, attempt, confirmDialog, promptDialog } from './
 import { openQuickAdd, openCategoryDialog, confirmDeleteCategory, openFolderDialog, openMoveMenu, openMediaSearch, openBookmark, viewerIdInUrl, isViewerOpen, closeViewerFromUrl } from './dialogs.js';
 import { mountSearchDock, parseChips } from './searchdock.js';
 import { openPalette } from './palette.js';
+import { expandingGroup } from './button-group.js';
 
 // Home lists everything, newest first; Favorites is the one shortcut on top of it.
 const WORKSPACE = [
@@ -449,63 +450,103 @@ export function mountShell(app) {
 
   // --- bulk selection bar ---------------------------------------------------------------------
 
-  let bulkbar = null;
+  // One bar for the whole selection: created when it starts, updated in place
+  // (so its animations run undisturbed), and kept until an in-place
+  // confirmation ("Deleted", "Moved"…) has been seen.
+  let bulkbar = null; // { el, group, count }
+
+  function createBulkbar() {
+    const ids = () => selection.ids();
+    // clear() is silent when the selection is already empty (after a delete), so redraw too.
+    const finish = () => {
+      selection.clear();
+      renderBulkbar();
+    };
+    const count = h('span', { class: 'bulkbar-count', 'aria-live': 'polite' });
+    const group = expandingGroup({
+      label: 'Bulk actions',
+      rest: 'move',
+      items: [
+        { id: 'all', label: 'Select all', icon: 'check-square', run: () => (selection.set(grid.items.map((b) => b.id)), false) },
+        {
+          id: 'move',
+          label: 'Move',
+          icon: 'folder',
+          doneLabel: 'Moved',
+          run: () => {
+            openMoveMenu(group.el.querySelector('[data-id="move"]'), ids(), { onDone: () => group.confirm('move') });
+            return false;
+          },
+        },
+        { id: 'favorite', label: 'Favorite', icon: 'heart', doneLabel: 'Favorited', run: () => attempt(() => setFavorite(ids(), true)) },
+        {
+          id: 'tag',
+          label: 'Tag',
+          icon: 'tag',
+          doneLabel: 'Tagged',
+          run: () => {
+            const list = ids();
+            promptDialog({
+              title: `Tag ${plural(list.length, 'bookmark')}`,
+              label: 'Tag name',
+              placeholder: 'e.g. inspiration…',
+              confirmLabel: 'Add tag',
+              onSubmit: async (value) => {
+                if (!value.trim()) throw new Error('Type a tag name.');
+                await addTagToBookmarks(list, value);
+                group.confirm('tag');
+              },
+            });
+            return false;
+          },
+        },
+        {
+          id: 'delete',
+          label: 'Delete',
+          icon: 'trash',
+          tone: 'danger',
+          doneLabel: 'Deleted',
+          run: async () => {
+            const list = ids();
+            const yes = await confirmDialog({ title: `Delete ${plural(list.length, 'bookmark')}?`, message: 'They are removed from your library. This can’t be undone.' });
+            return yes && attempt(() => deleteBookmarks(list));
+          },
+        },
+      ],
+      onSettled: finish,
+    });
+    const el = h(
+      'div',
+      { class: 'bulkbar' },
+      count,
+      group.el,
+      h('button', { type: 'button', class: 'icon-btn bulkbar-close', 'aria-label': 'Cancel selection', title: 'Cancel', onClick: finish }, iconEl('x', 15))
+    );
+    // Same place as the search dock (the workspace, not the window), which it stands in for.
+    main.append(el);
+    group.measure();
+    return { el, group, count };
+  }
+
   function renderBulkbar() {
+    // Held while an action runs or its confirmation shows: deleting empties the
+    // selection before "Deleted" has been seen.
+    const holding = Boolean(bulkbar?.group.holding);
     // The bulk bar takes the search dock's place while bookmarks are selected.
-    root.classList.toggle('is-selecting', selection.active);
+    root.classList.toggle('is-selecting', selection.active || holding);
     if (!selection.active) {
-      bulkbar?.remove();
+      if (holding) return; // closes once the confirmation has been shown (onSettled)
+      bulkbar?.group.destroy();
+      bulkbar?.el.remove();
       bulkbar = null;
       return;
     }
-    const ids = selection.ids();
-    const none = ids.length === 0;
-    const done = () => selection.clear();
-    const button = (iconName, label, onClick, extra = '') =>
-      h('button', { type: 'button', class: `btn btn-ghost ${extra}`, disabled: none, title: label, onClick }, iconEl(iconName, 15), h('span', null, label));
-
-    const next = h(
-      'div',
-      { class: 'bulkbar', role: 'toolbar', 'aria-label': 'Bulk actions' },
-      h('span', { class: 'bulkbar-count', 'aria-live': 'polite' }, none ? 'Select bookmarks' : `${ids.length} selected`),
-      h(
-        'button',
-        { type: 'button', class: 'btn btn-ghost', onClick: () => selection.set(grid.items.map((b) => b.id)) },
-        'All'
-      ),
-      button('folder', 'Move', (event) => openMoveMenu(event.currentTarget, ids, { onDone: done })),
-      button('heart', 'Favorite', async () => {
-        if (await attempt(() => setFavorite(ids, true), `${plural(ids.length, 'bookmark')} added to favorites`)) done();
-      }),
-      button('tag', 'Tag', () =>
-        promptDialog({
-          title: `Tag ${plural(ids.length, 'bookmark')}`,
-          label: 'Tag name',
-          placeholder: 'e.g. inspiration…',
-          confirmLabel: 'Add tag',
-          onSubmit: async (value) => {
-            if (!value.trim()) throw new Error('Type a tag name.');
-            await addTagToBookmarks(ids, value);
-            done();
-          },
-        })
-      ),
-      button(
-        'trash',
-        'Delete',
-        async () => {
-          const yes = await confirmDialog({ title: `Delete ${plural(ids.length, 'bookmark')}?`, message: "They are removed from your library. This can’t be undone." });
-          if (yes && (await attempt(() => deleteBookmarks(ids), `${plural(ids.length, 'bookmark')} deleted`))) done();
-        },
-        'btn-danger'
-      ),
-      h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Cancel selection', title: 'Cancel', onClick: done }, iconEl('x', 15))
-    );
-    if (bulkbar) bulkbar.replaceWith(next);
-    else document.body.append(next);
-    // Entrance animation only the first time it appears.
-    if (bulkbar) next.style.animation = 'none';
-    bulkbar = next;
+    if (!bulkbar) bulkbar = createBulkbar();
+    if (holding) return; // keep the count the action refers to
+    const size = selection.size;
+    // On phones only the number shows (the word is hidden by CSS, still read out).
+    bulkbar.count.replaceChildren(...(size ? [h('strong', null, formatNumber(size)), h('span', { class: 'bulkbar-count-word' }, ' selected')] : ['Select bookmarks']));
+    bulkbar.group.setDisabled(['move', 'favorite', 'tag', 'delete'], size === 0);
   }
 
   // --- wiring ------------------------------------------------------------------------------------

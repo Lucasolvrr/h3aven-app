@@ -378,24 +378,130 @@
 /* --- Bulk selection bar ------------------------------------------------------------ */
 
 .bulkbar {
-  position: fixed;
+  /* The search dock's twin: same spot, height and radius, so swapping one for
+     the other doesn't jump. Background: the viewer's round buttons (white 8%
+     over near-black), on glass so what scrolls under it stays soft. */
+  position: absolute;
   left: 50%;
-  bottom: 22px;
+  bottom: 20px;
   z-index: 40;
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 5px 6px 5px 14px;
-  border-radius: 999px;
-  background: var(--surface-2);
-  border: 1px solid var(--border-strong);
-  box-shadow: var(--shadow-pop);
+  gap: 6px;
+  height: 56px;
+  padding: 0 8px 0 20px;
+  border-radius: 28px;
+  background: rgba(38, 38, 38, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), 0 24px 60px -24px rgba(0, 0, 0, 0.7), 0 4px 14px rgba(0, 0, 0, 0.35);
   transform: translateX(-50%);
-  animation: rise-in var(--medium) var(--ease);
+  animation: bulkbar-in var(--medium) var(--ease);
   white-space: nowrap;
 }
-.bulkbar-count { margin-right: 8px; font-size: 13px; color: var(--text); font-variant-numeric: tabular-nums; }
-.bulkbar .btn { height: 30px; padding: 0 10px; border-radius: 999px; }
+@keyframes bulkbar-in { from { opacity: 0; transform: translate(-50%, 12px); } }
+.bulkbar-count { margin-right: 6px; font-size: 14px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.bulkbar-count strong { font-weight: 600; color: var(--text); }
+.bulkbar-close { width: 40px; height: 40px; border-radius: 50%; color: var(--text-3); }
+.bulkbar-close:hover { color: var(--text); background: rgba(255, 255, 255, 0.08); }
+
+/* --- Expanding button group (button-group.js) ---------------------------------------
+   Icon buttons in a pill. The expanded one shows its label; its width is set
+   from JS (CSS can't transition to auto) and rides a critically damped curve,
+   so the neighbours slide aside without overshoot. The icon keeps the same
+   left inset collapsed and expanded, so it never moves. */
+
+.ebg {
+  --ebg-h: 40px; /* 8px inside the 56px bar, like the dock's field */
+  --ebg-icon: 17px;
+  --ebg-start: 11.5px; /* (h - icon) / 2: centred when collapsed */
+  --ebg-gap: 8px;
+  --ebg-end: 16px;
+  --ebg-morph: 460ms cubic-bezier(0.32, 0.72, 0, 1);
+  --ebg-enter: cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.ebg-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: none;
+  width: var(--ebg-h);
+  height: var(--ebg-h);
+  padding: 0 0 0 var(--ebg-start);
+  overflow: hidden;
+  border-radius: 999px;
+  color: var(--text-2);
+  text-align: left; /* the word sits against the icon, not centred in its slot */
+  white-space: nowrap;
+  transition: width var(--ebg-morph), background 220ms var(--ease), color 220ms var(--ease);
+}
+/* before the first measurement: natural width, no animation */
+.ebg:not(.is-measured) .ebg-item[data-expanded] { width: auto; padding-right: var(--ebg-end); }
+.ebg-item:hover { color: var(--text); }
+.ebg-item[data-expanded] { background: rgba(255, 255, 255, 0.08); color: var(--text); }
+.ebg-item[data-tone='danger'][data-expanded] { background: rgba(229, 121, 109, 0.14); color: var(--danger); }
+.ebg-item[data-state='done'] { background: rgba(74, 222, 128, 0.12); color: var(--text); }
+.ebg-item[data-state='done'] .ebg-icon { color: #4ade80; }
+.ebg-item[aria-disabled] { opacity: 0.4; cursor: default; }
+.ebg-item:focus-visible { outline: 2px solid rgba(242, 242, 242, 0.7); outline-offset: 1px; }
+.ebg-item:active:not([aria-disabled]) .ebg-icon { transform: scale(0.9); }
+
+.ebg-icon { position: relative; display: grid; flex: none; width: var(--ebg-icon); height: var(--ebg-icon); transition: transform 120ms var(--ease); }
+.ebg-glyph { grid-area: 1 / 1; display: grid; place-items: center; }
+.ebg-glyph svg { width: 100%; height: 100%; }
+.ebg-item[aria-busy] .ebg-glyph { animation: ebg-busy 900ms ease-in-out infinite; }
+
+/* The label slides out from behind the icon as the width opens, and tucks back a little faster than it came. */
+.ebg-label {
+  display: grid;
+  flex: none;
+  margin-left: var(--ebg-gap);
+  font-size: 14.5px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  opacity: 0;
+  transform: translateX(-6px);
+  filter: blur(2px);
+  transition: opacity 120ms var(--ease), transform 120ms var(--ease), filter 120ms var(--ease);
+}
+.ebg-item[data-expanded] .ebg-label {
+  opacity: 1;
+  transform: none;
+  filter: blur(0);
+  transition: opacity 280ms var(--ebg-enter) 40ms, transform 280ms var(--ebg-enter) 40ms, filter 280ms var(--ebg-enter) 40ms;
+}
+/* Both words share one grid cell; the hidden sizers keep the slot as wide as the longer one. */
+.ebg-words,
+.ebg-sizer { grid-area: 1 / 1; }
+.ebg-words { display: grid; }
+.ebg-word { grid-area: 1 / 1; }
+.ebg-sizer { visibility: hidden; }
+
+.ebg-word.is-entering { animation: ebg-word-in 280ms var(--ebg-enter) both; }
+.ebg-word.is-leaving { animation: ebg-word-out 160ms var(--ease) both; }
+.ebg-glyph.is-entering { animation: ebg-icon-in 420ms cubic-bezier(0.34, 1.4, 0.64, 1) both; }
+.ebg-glyph.is-leaving { animation: ebg-icon-out 160ms var(--ease) both; }
+.ebg-check { stroke-dasharray: 1; stroke-dashoffset: 1; animation: ebg-draw 320ms var(--ebg-enter) 60ms forwards; }
+
+@keyframes ebg-word-in { from { opacity: 0; transform: translateY(0.5em); filter: blur(3px); } }
+@keyframes ebg-word-out { to { opacity: 0; transform: translateY(-0.4em); filter: blur(2px); } }
+@keyframes ebg-icon-in { from { opacity: 0; transform: scale(0.55); filter: blur(2px); } }
+@keyframes ebg-icon-out { to { opacity: 0; transform: scale(0.55); filter: blur(2px); } }
+@keyframes ebg-draw { to { stroke-dashoffset: 0; } }
+@keyframes ebg-busy { 50% { opacity: 0.35; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ebg-item,
+  .ebg-label,
+  .ebg-item[data-expanded] .ebg-label { transition-duration: 1ms !important; transition-delay: 0s !important; transform: none !important; filter: none !important; }
+  .ebg-word,
+  .ebg-glyph,
+  .ebg-check { animation-duration: 1ms !important; animation-delay: 0s !important; }
+}
 
 /* --- Library (movies, series, music) ------------------------------------------------ */
 
@@ -639,14 +745,17 @@ button.chip:hover, a.chip:hover { background: var(--surface-hover); color: var(-
   .shelves { --shelf-gap: 14px; --shelf-inset: 14px; --shelf-height: 34px; --shelf-sink: 5px; gap: 28px; }
   .shelf-glass { border-radius: 12px; }
   .poster-art { border-radius: 12px; }
-  .bulkbar { bottom: max(14px, env(safe-area-inset-bottom)); max-width: calc(100vw - 16px); }
+  .bulkbar { bottom: max(12px, env(safe-area-inset-bottom)); max-width: calc(100% - 20px); gap: 4px; padding: 0 8px 0 16px; }
+  .bulkbar-count-word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .ebg { --ebg-h: 36px; --ebg-icon: 16px; --ebg-start: 10px; --ebg-gap: 6px; --ebg-end: 13px; }
+  .ebg-label { font-size: 14px; }
+  .bulkbar-close { width: 36px; height: 36px; }
   .dock { bottom: max(12px, env(safe-area-inset-bottom)); width: calc(100% - 20px); }
   .mtabs { margin: 0 8px; padding: 0 6px 6px; border-radius: 24px; }
   .mtabs-rail { margin: 0 20px; height: 58px; }
   .mtabs-panel { --gutter: 12px; padding: 16px 0 20px; border-radius: 20px; }
   .mtab { padding: 0 13px; }
   .dock-chip-label { max-width: 110px; }
-  .bulkbar .btn span { display: none; }
 }
 
 /* No hover on touch screens: keep the favourite marker, drop hover-only actions */
