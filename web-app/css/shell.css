@@ -159,8 +159,10 @@
 .app.is-collapsed .sb-nav { overflow: visible; }
 .app.is-collapsed .sidebar { overflow: visible; z-index: 5; }
 .app.is-collapsed .sb-brand { flex: none; width: 28px; overflow: hidden; }
-/* The expand button takes the logo's place while the rail is hovered. */
-.app.is-collapsed .sb-collapse { position: absolute; left: 5px; top: 5px; opacity: 0; }
+/* The expand button takes the logo's place while the rail is hovered.
+   .sb-head in the selector: it must outrank `[data-tip] { position: relative }`
+   below, which otherwise left the button in the flow, pushed outside the rail. */
+.app.is-collapsed .sb-head .sb-collapse { position: absolute; left: 5px; top: 5px; z-index: 1; opacity: 0; }
 .app.is-collapsed .sidebar:hover .sb-collapse,
 .app.is-collapsed .sb-collapse:focus-visible { opacity: 1; }
 .app.is-collapsed .sidebar:hover .sb-logo { opacity: 0; }
